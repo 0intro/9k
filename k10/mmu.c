@@ -139,6 +139,7 @@ mmuswitch(Proc* proc)
 		pte[page->daddr] = PPN(page->pa)|PteU|PteRW|PteP;
 		if(page->daddr >= m->pml4->daddr)
 			m->pml4->daddr = page->daddr+1;
+		page->prev = m->pml4;
 	}
 
 	tssrsp0(STACKALIGN(PTR2UINT(proc->kstack+KSTACK)));
@@ -443,11 +444,13 @@ int
 mmuwalk(uintptr va, int level, PTE** ret, u64int (*alloc)(usize))
 {
 	int l;
+	Mpl pl;
 	uintptr pa;
 	PTE *pte, *ptp;
 
 	DBG("mmuwalk%d: va %#p level %d\n", m->machno, va, level);
 	pte = nil;
+	pl = splhi();
 	for(l = 3; l >= 0; l--){
 		ptp = mmuptpget(va, l);
 		pte = &ptp[PTLX(va, l)];
@@ -459,6 +462,7 @@ mmuwalk(uintptr va, int level, PTE** ret, u64int (*alloc)(usize))
 			pa = alloc(PTSZ);
 			if(pa == ~0)
 				return -1;
+if(pa & 0xfffull) print("mmuwalk pa %#llux\n", pa);
 			*pte = pa|PteRW|PteP;
 			if((ptp = mmuptpget(va, l-1)) == nil)
 				panic("mmuwalk: mmuptpget(%#p, %d)\n", va, l-1);
@@ -468,6 +472,7 @@ mmuwalk(uintptr va, int level, PTE** ret, u64int (*alloc)(usize))
 			break;
 	}
 	*ret = pte;
+	splx(pl);
 
 	return l;
 }
@@ -502,24 +507,42 @@ void
 mmuinit(void)
 {
 	int l;
+	uchar *p;
 	PTE *pte;
-	uintptr pml4;
-	u64int o, pa, sz;
-	u64int r;
 	Page *page;
+	uintptr pml4;
+	u64int o, pa, r, sz;
 
 	archmmu();
 	DBG("mach%d: %#p npgsz %d\n", m->machno, m, m->npgsz);
-	if(m->machno == 0)
-		page = &mach0pml4;
-	else{
+	if(m->machno != 0){
 		/*
-		 * Need to do something here, but this isn't it.
-		page = newpage(1, 0, 0);
+		 * GAK: Has to go when each mach is using
+		 * its own page table
 		 */
-		page = nil;
+		p = UINT2PTR(m->stack);
+		p += MACHSTKSZ;
+		memmove(p, UINT2PTR(mach0pml4.va), PTSZ);
+		m->pml4 = &m->pml4kludge;
+		m->pml4->va = PTR2UINT(p);
+		m->pml4->pa = PADDR(p);
+		m->pml4->daddr = mach0pml4.daddr;	/* # of user mappings in pml4 */
+		if(m->pml4->daddr){
+			memset(p, 0, m->pml4->daddr*sizeof(PTE));
+			m->pml4->daddr = 0;
+		}
+pte = (PTE*)p;
+pte[PTLX(KSEG1PML4, 3)] = m->pml4->pa|PteRW|PteP;
+
+		r = rdmsr(Efer);
+		r |= Nxe;
+		wrmsr(Efer, r);
+		cr3put(m->pml4->pa);
+		print("mach%d: %#p pml4 %#p\n", m->machno, m, m->pml4);
+		return;
 	}
 
+	page = &mach0pml4;
 	page->pa = cr3get();
 	page->va = PTR2UINT(sys->pml4);
 

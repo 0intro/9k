@@ -204,7 +204,7 @@ ioapicintrdd(u32int* hi, u32int* lo)
 	 */
 	switch(dfpolicy){
 	default:				/* noise core 0 */
-		*hi = sys->machptr[0]->apicno;
+		*hi = sys->machptr[0]->apicno<<24;
 		break;
 #ifdef notdef
 	case 1:					/* round-robin */

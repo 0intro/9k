@@ -43,8 +43,7 @@ link +dev
 
 misc +dev
 #	cache
-# GAK mp needs sipi too
-	mp		apic ioapic pci
+	mp		apic ioapic pci sipi
 
 #
 #boot cpu
@@ -95,6 +94,7 @@ dbgflg
 	main		'x'
 	mmu		'm'
 	asm		'a'
+	main		'x'
 
 amd64 +dev
 	l32p

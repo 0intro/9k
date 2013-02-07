@@ -79,6 +79,7 @@ squidboy(int apicno)
 	 */
 	m->cpuhz = 2000000000ll;
 	m->cpumhz = 2000;
+	m->perf.period = 1;
 
 	DBG("Hello Squidboy %d %d\n", apicno, m->machno);
 
@@ -93,25 +94,58 @@ squidboy(int apicno)
 	m->cpuhz = hz;
 	m->cpumhz = hz/1000000ll;
 
-//	mmuinit();
+	mmuinit();
 	if(!apiconline())
 		ndnr();
 
+	fpuinit();
+
+	/*
+	 * Handshake with sipi to let it
+	 * know the Startup IPI succeeded.
+	 */
 	m->splpc = 0;
 
 	/*
-	 * To go further, need handshake with main and tlb flush,
-	 * time sync, etc.
+	 * Handshake with main to proceed with initialisation.
 	 */
-	while(!m->online)
-		archidle();
-	DBG("mach%d: online\n", m->machno);
-	ndnr();
+	while(sys->epoch == 0)
+		;
+	wrmsr(0x10, sys->epoch);
+	m->rdtsc = rdtsc();
+
+	print("mach %d is go %#p %#p %3p\n", m->machno, m, m->pml4->va, &apicno);
+	switch(m->mode){
+	default:
+//		vsvminit(MACHSTKSZ);
+
+		timersinit();
+
+		/*
+		 * Cannot allow interrupts while waiting for online,
+		 * if this were a real O/S, it would perhaps allow a clock
+		 * interrupt to call the scheduler, and that would
+		 * be a mistake.
+		 * However, by taking the lowering of the APIC task priority
+		 * out of apiconline something could be done here with
+		 * MONITOR/MWAIT perhaps to drop the energy used by the
+		 * idle core.
+		 */
+		while(!m->online)
+			;
+		apictprput(0);
+
+		DBG("mach%d: online\n", m->machno);
+		schedinit();
+		break;
+	}
+	panic("squidboy returns (type %d)", m->mode);
 }
 
 void
 main(u32int ax, u32int bx)
 {
+	int i;
 	vlong hz;
 
 	memset(edata, 0, end - edata);
@@ -149,6 +183,7 @@ main(u32int ax, u32int bx)
 
 	vsvminit(MACHSTKSZ);
 
+	conf.nmach = 1;				/* put off until later? */
 	active.machs = 1;
 	active.exiting = 0;
 
@@ -167,6 +202,7 @@ main(u32int ax, u32int bx)
 
 	/*
 	 * Mmuinit before meminit because it
+	 * makes mappings and
 	 * flushes the TLB via m->pml4->pa.
 	 */
 	mmuinit();
@@ -200,10 +236,8 @@ main(u32int ax, u32int bx)
 	i8259init(32);
 
 	mpsinit();
-	conf.nmach = sys->nmach;			/* GAK port uses conf */
 	apiconline();
 	apictprput(0);
-//	sipi();
 
 	timersinit();
 	kbdenable();
@@ -215,7 +249,27 @@ main(u32int ax, u32int bx)
 	pageinit();
 	swapinit();
 	userinit();
-	active.thunderbirdsarego = 1;
+	if(!dbgflg['S'])
+		sipi();
+
+	sys->epoch = rdtsc();
+	wrmsr(0x10, sys->epoch);
+	m->rdtsc = rdtsc();
+
+	/*
+	 * Release the hounds.
+	 */
+	for(i = 1; i < sys->nmach; i++){
+		if(sys->machptr[i] == nil)
+			continue;
+
+		conf.nmach++;			/* GAK */
+		lock(&active);			/* GAK */
+		active.machs |= 1<<i;		/* GAK */
+		unlock(&active);		/* GAK */
+
+		sys->machptr[i]->online = 1;
+	}
 	schedinit();
 }
 

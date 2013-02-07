@@ -723,8 +723,12 @@ procread(Chan *c, void *va, long n, vlong off)
 		return rptr - (uchar*)va;
 	}
 
-	if((p = psincref(SLOT(c->qid))) == nil || p->pid != PID(c->qid))
+	if((p = psincref(SLOT(c->qid))) == nil)
 		error(Eprocdied);
+	if(p->pid != PID(c->qid)){
+		psdecref(p);
+		error(Eprocdied);
+	}
 
 	switch(QID(c->qid)){
 	default:

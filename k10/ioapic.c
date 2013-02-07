@@ -75,7 +75,7 @@ ioapicintrinit(int busno, int apicno, int intin, int devno, u32int lo)
 
 	if(busno >= Nbus || apicno >= Napic || nrdtarray >= Nrdt)
 		return;
-	apic = &xapic[apicno];
+	apic = &ioapic[apicno];
 	if(!apic->useable || intin >= apic->nrdt)
 		return;
 
@@ -100,13 +100,13 @@ ioapicinit(int id, uintptr pa)
 	if(id >= Napic)
 		return;
 
-	apic = &xapic[id];
+	apic = &ioapic[id];
 	if(apic->useable || (apic->addr = vmap(pa, 1024)) == nil)
 		return;
 	apic->useable = 1;
 
 	/*
-	 * Initialise the I/O APIC.
+	 * Initialise the IOAPIC.
 	 * The MultiProcessor Specification says it is the
 	 * responsibility of the O/S to set the APIC ID.
 	 */
@@ -133,7 +133,7 @@ ioapicdump(void)
 		return;
 
 	for(i = 0; i < Napic; i++){
-		apic = &xapic[i];
+		apic = &ioapic[i];
 		if(!apic->useable || apic->addr == 0)
 			continue;
 		DBG("ioapic %d addr %#p nrdt %d gsib %d\n",
@@ -151,7 +151,7 @@ ioapicdump(void)
 		DBG("iointr bus %d:\n", i);
 		while(rdt != nil){
 			DBG(" apic %ld devno %#ux (%d %d) intin %d lo %#ux\n",
-				rdt->apic-xapic, rdt->devno, rdt->devno>>2,
+				rdt->apic-ioapic, rdt->devno, rdt->devno>>2,
 				rdt->devno & 0x03, rdt->intin, rdt->lo);
 			rdt = rdt->next;
 		}
@@ -164,7 +164,7 @@ ioapiconline(void)
 	int i;
 	Apic *apic;
 
-	for(apic = xapic; apic < &xapic[Napic]; apic++){
+	for(apic = ioapic; apic < &ioapic[Napic]; apic++){
 		if(!apic->useable || apic->addr == nil)
 			continue;
 		for(i = 0; i < apic->nrdt; i++){
@@ -204,7 +204,7 @@ ioapicintrdd(u32int* hi, u32int* lo)
 	 */
 	switch(dfpolicy){
 	default:				/* noise core 0 */
-		*hi = sys->machptr[0]->apicno;
+		*hi = sys->machptr[0]->apicno<<24;
 		break;
 	case 1:					/* round-robin */
 		/*

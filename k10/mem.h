@@ -96,4 +96,5 @@
 
 #define TMFM		(64*MiB)			/* GAK kernel memory */
 
-#define PPN(x)		((x)&~((1ull<<PGSHFT)-1))	/* GAK */
+/* this can go when the arguments to mmuput change */
+#define PPN(x)		((x) & ~(PGSZ-1))		/* GAK */

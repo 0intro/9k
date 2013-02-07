@@ -88,7 +88,7 @@ mpmkintr(u8int* p)
 			mpintrprint("APIC ID out of range", p);
 			return 0;
 		}
-		apic = &xapic[p[6]];
+		apic = &ioapic[p[6]];
 		if(!apic->useable){
 			mpintrprint("unuseable APIC", p);
 			return 0;
@@ -204,11 +204,6 @@ mpparse(PCMP* pcmp)
 		break;
 	case 1:					/* bus */
 		DBG("mpparse: bus: %d type %6.6s\n", p[1], (char*)p+2);
-		if(p[1] >= Nbus){
-			print("mpparse: bus %d out of range\n", p[1]);
-			p += 8;
-			break;
-		}
 		if(mpbus[p[1]] != nil){
 			print("mpparse: bus %d already allocated\n", p[1]);
 			p += 8;
@@ -239,6 +234,8 @@ mpparse(PCMP* pcmp)
 		 * Initialise the IOAPIC if it is enabled (p[3] & 0x01).
 		 * p[1] is the APIC ID, p[4-7] is the memory mapped address.
 		 */
+		DBG("mpparse: IOAPIC %d pa %#ux useable %d\n",
+			p[1], l32get(p+4), p[3] & 0x01);
 		if(p[3] & 0x01)
 			ioapicinit(p[1], l32get(p+4));
 
@@ -295,20 +292,20 @@ mpparse(PCMP* pcmp)
 		 */
 		if(p[6] == 0xff){
 			for(i = 0; i < Napic; i++){
-				if(!xapic[i].useable || xapic[i].addr != nil)
+				if(!ioapic[i].useable || ioapic[i].addr != nil)
 					continue;
-				xapic[i].lvt[p[7]] = lo;
+				ioapic[i].lvt[p[7]] = lo;
 			}
 		}
 		else
-			xapic[p[6]].lvt[p[7]] = lo;
+			ioapic[p[6]].lvt[p[7]] = lo;
 		p += 8;
 		break;
 	}
 
 	/*
-	 * There's nothing of interest in the extended table,
-	 * but check it for consistency.
+	 * There's nothing of real interest in the extended table,
+	 * should just move along, but check it for consistency.
 	 */
 	p = e;
 	e = p + l16get(pcmp->xlength);
@@ -363,6 +360,8 @@ sigscan(u8int* address, int length, char* signature)
 	u8int *e, *p;
 	int siglength;
 
+	DBG("check for %s in system base memory @ %#p\n", signature, address);
+
 	e = address+length;
 	siglength = strlen(signature);
 	for(p = address; p+siglength < e; p += 16){
@@ -383,20 +382,25 @@ sigsearch(char* signature)
 
 	/*
 	 * Search for the data structure:
-	 * 1) in the first KB of the EBDA;
-	 * 2) in the last KB of system base memory;
-	 * 3) in the BIOS ROM between 0xe0000 and 0xfffff.
+	 * 1) within the first KiB of the Extended BIOS Data Area (EBDA), or
+	 * 2) within the last KiB of system base memory if the EBDA segment
+	 *    is undefined, or
+	 * 3) within the BIOS ROM address space between 0xf0000 and 0xfffff
+	 *    (but will actually check 0xe0000 to 0xfffff).
 	 */
 	bda = BIOSSEG(0x40);
 	if(memcmp(KADDR(0xfffd9), "EISA", 4) == 0){
-		if((p = (bda[0x0f]<<8)|bda[0x0e])){
+		if((p = (bda[0x0f]<<8)|bda[0x0e]) != 0){
 			if((r = sigscan(BIOSSEG(p), 1024, signature)) != nil)
 				return r;
 		}
 	}
 
-	p = ((bda[0x14]<<8)|bda[0x13])*1024;
-	if((r = sigscan(KADDR(p-1024), 1024, signature)) != nil)
+	if((p = ((bda[0x14]<<8)|bda[0x13])*1024) != 0){
+		if((r = sigscan(KADDR(p-1024), 1024, signature)) != nil)
+			return r;
+	}
+	if((r = sigscan(KADDR(0xa0000-1024), 1024, signature)) != nil)
 		return r;
 
 	return sigscan(BIOSSEG(0xe000), 0x20000, signature);

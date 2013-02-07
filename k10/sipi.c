@@ -16,6 +16,7 @@ sipi(void)
 	Mach *mach;
 	int apicno, i;
 	u32int *sipiptr;
+	uintmem sipipa;
 	u8int *alloc, *p;
 	extern void squidboy(int);
 
@@ -23,15 +24,17 @@ sipi(void)
 	 * Move the startup code into place,
 	 * must be aligned properly.
 	 */
-	sipiptr = UINT2PTR(SIPIHANDLER);
-	if(PADDR(sipiptr) & (4*KiB - 1))
+	sipipa = mmuphysaddr(SIPIHANDLER);
+	if((sipipa & (4*KiB - 1)) || sipipa > (1*MiB - 2*4*KiB))
 		return;
+	sipiptr = UINT2PTR(SIPIHANDLER);
 	memmove(sipiptr, sipihandler, sizeof(sipihandler));
+	DBG("sipiptr %#p sipipa %#llux\n", sipiptr, sipipa);
 
 	/*
 	 * Notes:
 	 * The Universal Startup Algorithm described in the MP Spec. 1.4.
-	 * The data needed per-processor is the sum of the the stack, page
+	 * The data needed per-processor is the sum of the stack, page
 	 * table pages, vsvm page and the Mach page. The layout is similar
 	 * to that described in data.h for the bootstrap processor, but
 	 * with any unused space elided.
@@ -46,15 +49,16 @@ sipi(void)
 		 * bootstrap processor, until the lsipi code is worked out,
 		 * so only the Mach and stack portions are used below.
 		 */
-		alloc = mallocalign(MACHSTKSZ+4*PTPGSZ+PGSZ+MACHSZ, PGSZ, 0, 0);
+		alloc = mallocalign(MACHSTKSZ+4*PTSZ+4*KiB+MACHSZ, 4096, 0, 0);
 		if(alloc == nil)
 			continue;
-		memset(alloc, 0, MACHSTKSZ+4*PTPGSZ+PGSZ+MACHSZ);
+		memset(alloc, 0, MACHSTKSZ+4*PTSZ+4*KiB+MACHSZ);
 		p = alloc+MACHSTKSZ;
 
-		sipiptr[-1] = PADDR(p);			/* need mmuphysaddr */
+		sipiptr[-1] = mmuphysaddr(PTR2UINT(p));
+		DBG("p %#p sipiptr[-1] %#ux\n", p, sipiptr[-1]);
 
-		p += 4*PTPGSZ+PGSZ;
+		p += 4*PTSZ+4*KiB;
 
 		/*
 		 * Committed. If the AP startup fails, can't safely
@@ -67,16 +71,17 @@ sipi(void)
 		mach->splpc = PTR2UINT(squidboy);
 		mach->apicno = apicno;
 		mach->stack = PTR2UINT(alloc);
-		mach->vsvm = alloc+MACHSTKSZ+4*PTPGSZ;
+		mach->vsvm = alloc+MACHSTKSZ+4*PTSZ;
+//OH OH		mach->pml4 = (PTE*)(alloc+MACHSTKSZ);
 
 		p = KADDR(0x467);
-		*p++ = PADDR(sipiptr);
-		*p++ = PADDR(sipiptr)>>8;
+		*p++ = sipipa;
+		*p++ = sipipa>>8;
 		*p++ = 0;
 		*p = 0;
 
 		nvramwrite(0x0f, 0x0a);
-		apicsipi(apicno, PADDR(sipiptr));
+		apicsipi(apicno, sipipa);
 
 		for(i = 0; i < 1000; i++){
 			if(mach->splpc == 0)

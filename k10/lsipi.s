@@ -115,10 +115,10 @@ MODE $32
  * the C-style array-index macros into a page table byte
  * offset.
  */
-#define PML4O(v)	((PMX((v), 3))<<3)
-#define PDPO(v)		((PMX((v), 2))<<3)
-#define PDO(v)		((PMX((v), 1))<<3)
-#define PTO(v)		((PMX((v), 0))<<3)
+#define PML4O(v)	((PTLX((v), 3))<<3)
+#define PDPO(v)		((PTLX((v), 2))<<3)
+#define PDO(v)		((PTLX((v), 1))<<3)
+#define PTO(v)		((PTLX((v), 0))<<3)
 
 TEXT _protected<>(SB), 1, $-4
 	MOVL	$0xfee00000, BP			/* apicbase */
@@ -138,12 +138,12 @@ TEXT _protected<>(SB), 1, $-4
 	MOVL	PML4O(KZERO)(AX), DX		/* PML4E for KZERO, PMAPADDR */
 	MOVL	DX, PML4O(0)(AX)		/* PML4E for identity map */
 
-	ANDL	$~((1<<PTPGSHFT)-1), DX		/* lop off attribute bits */
+	ANDL	$~((1<<PTSHFT)-1), DX		/* lop off attribute bits */
 	MOVL	DX, AX				/* PDP for KZERO */
 	MOVL	PDPO(KZERO)(AX), DX		/* PDPE for KZERO, PMAPADDR */
 	MOVL	DX, PDPO(0)(AX)			/* PDPE for identity map */
 
-	ANDL	$~((1<<PTPGSHFT)-1), DX		/* lop off attribute bits */
+	ANDL	$~((1<<PTSHFT)-1), DX		/* lop off attribute bits */
 	MOVL	DX, AX				/* PD for KZERO */
 
 	MOVL	PDO(KZERO)(AX), DX		/* PDE for KZERO 0-2MiB */
@@ -208,12 +208,12 @@ TEXT _start64v<>(SB), 1, $-4
 	MOVQ	AX, SP				/* set stack */
 
 	MOVQ	PML4O(0)(AX), BX		/* PDPE identity map physical */
-	ANDQ	$~((1<<PTPGSHFT)-1), BX		/* lop off attribute bits */
+	ANDQ	$~((1<<PTSHFT)-1), BX		/* lop off attribute bits */
 	ADDQ	$KZERO, BX			/* PDP identity map virtual */
 	MOVQ	DX, PML4O(0)(AX)		/* zap identity map PML4E */
 
 	MOVQ	PDPO(0)(BX), AX			/* PDE identity map physical */
-	ANDQ	$~((1<<PTPGSHFT)-1), AX		/* lop off attribute bits */
+	ANDQ	$~((1<<PTSHFT)-1), AX		/* lop off attribute bits */
 	ADDQ	$KZERO, AX			/* PD identity map virtual */
 	MOVQ	DX, PDPO(0)(BX)			/* zap identity map PDPE */
 
@@ -237,7 +237,7 @@ TEXT _start64v<>(SB), 1, $-4
 
 	MOVQ	AX, SP				/* set stack */
 
-	ADDQ	$(4*PTPGSZ+PGSZ), AX		/* PML4+PDP+PD+PT+vsvm */
+	ADDQ	$(4*PTSZ+PGSZ), AX		/* PML4+PDP+PD+PT+vsvm */
 	MOVQ	AX, RMACH			/* Mach */
 	MOVQ	DX, RUSER
 

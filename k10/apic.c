@@ -201,7 +201,7 @@ apiconline(void)
 	nlvt = ((ver>>16) & 0xff) + 1;
 	if(nlvt > nelem(apic->lvt)){
 		print("apicinit%d: nlvt %d > max (%d)\n",
-			apicno, nlvt-1, nelem(apic->lvt));
+			apicno, nlvt, nelem(apic->lvt));
 		nlvt = nelem(apic->lvt);
 	}
 	apic->nlvt = nlvt;

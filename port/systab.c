@@ -56,6 +56,7 @@ extern void sysmount(Ar0*, va_list);
 extern void sysawait(Ar0*, va_list);
 extern void syspread(Ar0*, va_list);
 extern void syspwrite(Ar0*, va_list);
+extern void systsemacquire(Ar0*, va_list);
 struct {
 	char*	n;
 	void (*f)(Ar0*, va_list);
@@ -111,6 +112,7 @@ struct {
 	[AWAIT]		{ "Await", sysawait, { .i = -1 } },
 	[PREAD]		{ "Pread", syspread, { .l = -1 } },
 	[PWRITE]	{ "Pwrite", syspwrite, { .l = -1 } },
+	[TSEMACQUIRE]	{ "Tsemacquire", systsemacquire, { .i = -1 } },
 };
 
 int nsyscall = nelem(systab);

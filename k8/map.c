@@ -33,7 +33,7 @@ PADDR(void* va)
 	if(pa > KSEG1)
 		return pa-KSEG1;
 	print("PADDR: va %#p pa #%p @ %#p\n", va, _PADDR(va), getcallerpc(&va));
-//	return _PADDR(va);
+	return _PADDR(va);
 }
 
 KMap*

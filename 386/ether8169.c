@@ -102,11 +102,16 @@ enum {					/* Tcr */
 	Macv03		= 0x04000000,	/* RTL8169S/8110S */
 	Macv04		= 0x10000000,	/* RTL8169SB/8110SB */
 	Macv05		= 0x18000000,	/* RTL8169SC/8110SC */
+	Macv07		= 0x24800000,	/* RTL8102e */
+	Macv07a		= 0x34800000,	/* RTL8102e */
 	Macv11		= 0x30000000,	/* RTL8168B/8111B */
 	Macv12		= 0x38000000,	/* RTL8169B/8111B */
+	Macv12a		= 0x3c000000,	/* RTL8169C/8111C, also Macv19 RTL8111c-gr */
 	Macv13		= 0x34000000,	/* RTL8101E */
 	Macv14		= 0x30800000,	/* RTL8100E */
 	Macv15		= 0x38800000,	/* RTL8100E */
+	Macv25		= 0x28000000,	/* RTL8168D */
+	MacvXX		= 0x2c000000,	/* RTL8168E */
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
 };
@@ -710,10 +715,15 @@ rtl8169init(Ether* edev)
 		pcicfgw8(ctlr->pcidev, 0x69, 0x08);	/* magic */
 		break;
 	case Macv04:
+	case Macv07:
+	case Macv07a:
 	case Macv11:
 	case Macv12:
+	case Macv12a:
 	case Macv14:
 	case Macv15:
+	case Macv25:
+	case MacvXX:
 		break;
 	}
 

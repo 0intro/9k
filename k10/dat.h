@@ -10,7 +10,6 @@ typedef struct MMMU MMMU;
 typedef struct Mach Mach;
 typedef u64int Mpl;
 typedef Mpl Mreg;				/* GAK */
-typedef u64int uintmem;				/* horrible name */
 typedef struct Page Page;
 typedef struct Pcidev Pcidev;
 typedef struct PFPU PFPU;
@@ -19,6 +18,7 @@ typedef struct PNOTIFY PNOTIFY;
 typedef u64int PTE;
 typedef struct Proc Proc;
 typedef struct Sys Sys;
+typedef u64int uintmem;				/* horrible name */
 typedef struct Ureg Ureg;
 typedef struct Vctl Vctl;
 
@@ -155,6 +155,8 @@ struct MMMU
 	uint	pgszmask[NPGSZ];
 	uint	pgsz[NPGSZ];
 	int	npgsz;
+
+	Page	pml4kludge;		/* GAK: we need a page */
 };
 
 /*
@@ -175,6 +177,7 @@ struct Mach
 
 	int	apicno;
 	int	online;
+	int	mode;			/* fold into online? GAK */
 
 	MMMU;
 
@@ -210,6 +213,7 @@ struct Mach
 	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 	vlong	cpuhz;
 	int	cpumhz;
+	u64int	rdtsc;
 
 	MFPU;
 	MCPU;

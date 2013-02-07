@@ -223,15 +223,17 @@ function mksystab(					a, i, f, n, s, t){
 		# manual and code, but changing Plan 9 now is too awkward.
 		# It will matter more when sizeof(long) != sizeof(int).
 		#
-		# if($2 ~ "(FVERSION|STAT|FSTAT|WSTAT|FWSTAT|AWAIT)")
+		# if($2 ~ "^(FVERSION|STAT|FSTAT|WSTAT|FWSTAT|AWAIT)$")
 		#	t = t "{ .u = 0 } },\n";
 		#
-		# if($2 ~ "(BIND|_MOUNT|MOUNT)")
+		# if($2 ~ "^(BIND|_MOUNT|MOUNT)$")
 		#	t = t "{ .l = -1 } },\n";
 		#
-		if($2 ~ "(EXEC|SEGBRK|SEGATTACH|RENDEZVOUS)")
+		# The "^(...)$" are to ensure only exact matches are made.
+		#
+		if($2 ~ "^(EXEC|SEGBRK|SEGATTACH|RENDEZVOUS)$")
 			t = t "{ .v = (void*)-1 } },\n";
-		else if($2 ~ "(ALARM|_READ|_WRITE|PREAD|PWRITE)")
+		else if($2 ~ "^(ALARM|_READ|_WRITE|PREAD|PWRITE)$")
 			t = t "{ .l = -1 } },\n";
 		else
 			t = t "{ .i = -1 } },\n";

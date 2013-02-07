@@ -222,7 +222,7 @@ _splhi:
 	TESTQ	$If, AX				/* If - Interrupt Flag */
 
 	JZ	alreadyhi
-	MOVQ	(SP), BX			/* use CMOVLEQ etc. here? */
+	MOVQ	(SP), BX
 	MOVQ	BX, 8(RMACH) 			/* save PC in m->splpc */
 
 alreadyhi:
@@ -234,7 +234,7 @@ _spllo:
 	PUSHFQ
 	POPQ	AX
 	TESTQ	$If, AX				/* If - Interrupt Flag */
-	JNZ	alreadylo			/* use CMOVLEQ etc. here? */
+	JNZ	alreadylo
 	MOVQ	$0, 8(RMACH)			/* clear m->splpc */
 
 alreadylo:
@@ -298,7 +298,7 @@ TEXT cas32(SB), 1, $-4
 	MOVL	exp+8(FP), AX
 	MOVL	new+16(FP), BX
 	LOCK; CMPXCHGL BX, (RARG)
-	MOVL	$1, AX				/* use CMOVLEQ etc. here? */
+	MOVL	$1, AX
 	JNZ	_cas32r0
 _cas32r1:
 	RET
@@ -310,7 +310,7 @@ TEXT cas64(SB), 1, $-4
 	MOVQ	exp+8(FP), AX
 	MOVQ	new+16(FP), BX
 	LOCK; CMPXCHGQ BX, (RARG)
-	MOVL	$1, AX				/* use CMOVLEQ etc. here? */
+	MOVL	$1, AX
 	JNZ	_cas64r0
 _cas64r1:
 	RET
