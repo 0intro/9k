@@ -208,12 +208,16 @@ archhz(void)
 	vlong hz;
 	u32int info[2][4];
 
+	if(DBGFLG && m->machno == 0)
+		cpuiddump();
 	if(!cpuidinfo(0, 0, info[0]) || !cpuidinfo(1, 0, info[1]))
 		return 0;
 
 	hz = cpuidhz(info);
-	if(hz != 0 || m->machno != 0)
+	if(hz != 0)
 		return hz;
+	else if(m->machno != 0)
+		return sys->machptr[0]->cpuhz;
 
 	return i8254hz(info);
 }
