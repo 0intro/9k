@@ -366,7 +366,7 @@ iprintcanlock(Lock *l)
 	for(i=0; i<1000; i++){
 		if(canlock(l))
 			return 1;
-		if(l->m == MACHP(m->machno))
+		if(l->m == m)
 			return 0;
 		microdelay(100);
 	}
@@ -886,7 +886,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 		for(i=0; i<6 && NUMSIZE*i<k+n; i++){
 			l = up->time[i];
 			if(i == TReal)
-				l = MACHP(0)->ticks - l;
+				l = sys->ticks - l;
 			l = TK2MS(l);
 			readnum(0, tmp+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
 		}
@@ -942,35 +942,34 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qsysstat:
 		b = smalloc(conf.nmach*(NUMSIZE*11+1) + 1);	/* +1 for NUL */
 		bp = b;
-		for(id = 0; id < 32; id++) {
-			if(active.machs & (1<<id)) {
-				mp = MACHP(id);
-				readnum(0, bp, NUMSIZE, id, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->cs, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->intr, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->syscall, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->pfault, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->tlbfault, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->tlbpurge, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE, mp->load, NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE,
-					(mp->perf.avg_inidle*100)/mp->perf.period,
-					NUMSIZE);
-				bp += NUMSIZE;
-				readnum(0, bp, NUMSIZE,
-					(mp->perf.avg_inintr*100)/mp->perf.period,
-					NUMSIZE);
-				bp += NUMSIZE;
-				*bp++ = '\n';
-			}
+		for(id = 0; id < MACHMAX; id++){
+			if((mp = sys->machptr[id]) == nil || !mp->online)
+				continue;
+			readnum(0, bp, NUMSIZE, id, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->cs, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->intr, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->syscall, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->pfault, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->tlbfault, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->tlbpurge, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE, mp->load, NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE,
+				(mp->perf.avg_inidle*100)/mp->perf.period,
+				NUMSIZE);
+			bp += NUMSIZE;
+			readnum(0, bp, NUMSIZE,
+				(mp->perf.avg_inintr*100)/mp->perf.period,
+				NUMSIZE);
+			bp += NUMSIZE;
+			*bp++ = '\n';
 		}
 		if(waserror()){
 			free(b);
@@ -1038,7 +1037,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	long l, bp;
 	char *a;
 	Mach *mp;
-	int id, fd;
+	int i, fd;
 	Chan *swc;
 	ulong offset;
 	Cmdbuf *cb;
@@ -1135,16 +1134,15 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qsysstat:
-		for(id = 0; id < 32; id++) {
-			if(active.machs & (1<<id)) {
-				mp = MACHP(id);
-				mp->cs = 0;
-				mp->intr = 0;
-				mp->syscall = 0;
-				mp->pfault = 0;
-				mp->tlbfault = 0;
-				mp->tlbpurge = 0;
-			}
+		for(i = 0; i < MACHMAX; i++){
+			if((mp = sys->machptr[i]) == nil || !mp->online)
+				continue;
+			mp->cs = 0;
+			mp->intr = 0;
+			mp->syscall = 0;
+			mp->pfault = 0;
+			mp->tlbfault = 0;
+			mp->tlbpurge = 0;
 		}
 		break;
 
@@ -1223,7 +1221,7 @@ nrand(int n)
 {
 	if(randn == 0)
 		seedrand();
-	randn = randn*1103515245 + 12345 + MACHP(0)->ticks;
+	randn = randn*1103515245 + 12345 + sys->ticks;
 	return (randn>>16) % n;
 }
 

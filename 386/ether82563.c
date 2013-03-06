@@ -939,7 +939,7 @@ i82563replenish(Ctlr* ctlr)
 			static vlong lasttime;
 
 			/* don't flood the console */
-			now = tk2ms(MACHP(0)->ticks);
+			now = tk2ms(sys->ticks);
 			if (now - lasttime > 2000)
 				iprint("#l%d: 82563: all %d rx buffers in use\n",
 					ctlr->edev->ctlrno, ctlr->nrb);

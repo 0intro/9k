@@ -166,7 +166,7 @@ sched(void)
 	m->readied = 0;
 	up = p;
 	up->state = Running;
-	up->mach = MACHP(m->machno);
+	up->mach = m;
 	m->proc = up;
 	mmuswitch(up);
 	gotolabel(&up->sched);
@@ -271,7 +271,7 @@ updatecpu(Proc *p)
 	if(p->edf)
 		return;
 
-	t = MACHP(0)->ticks*Scaling + Scaling/2;
+	t = sys->ticks*Scaling + Scaling/2;
 	n = t - p->lastupdate;
 	p->lastupdate = t;
 
@@ -307,7 +307,7 @@ reprioritize(Proc *p)
 {
 	int fairshare, n, load, ratio;
 
-	load = MACHP(0)->load;
+	load = sys->machptr[0]->load;
 	if(load == 0)
 		return p->basepri;
 
@@ -467,7 +467,7 @@ another:
 		p = rq->head;
 		if(p == nil)
 			continue;
-		if(p->mp != MACHP(m->machno))
+		if(p->mp != m)
 			continue;
 		if(pri == p->basepri)
 			continue;
@@ -524,7 +524,7 @@ loop:
 		 */
 		for(rq = &runq[Nrq-1]; rq >= runq; rq--){
 			for(p = rq->head; p; p = p->rnext){
-				if(p->mp == nil || p->mp == MACHP(m->machno)
+				if(p->mp == nil || p->mp == m
 				|| (!p->wired && i > 0))
 					goto found;
 			}
@@ -546,7 +546,7 @@ found:
 		goto loop;
 
 	p->state = Scheding;
-	p->mp = MACHP(m->machno);
+	p->mp = m;
 
 	if(edflock(p)){
 		edfrun(p, rq == &runq[PriEdf]);	/* start deadline timer and do admin */
@@ -634,7 +634,7 @@ newproc(void)
 	p->wired = 0;
 	procpriority(p, PriNormal, 0);
 	p->cpu = 0;
-	p->lastupdate = MACHP(0)->ticks*Scaling;
+	p->lastupdate = sys->ticks*Scaling;
 	p->edf = nil;
 
 	return p;
@@ -670,7 +670,7 @@ procwired(Proc *p, int bm)
 		bm = bm % conf.nmach;
 	}
 
-	p->wired = MACHP(bm);
+	p->wired = sys->machptr[bm];
 	p->mp = p->wired;
 }
 
@@ -1069,7 +1069,7 @@ pexit(char *exitstr, int freemem)
 		stime = up->time[TSys] + up->time[TCSys];
 		wq->w.time[TUser] = tk2ms(utime);
 		wq->w.time[TSys] = tk2ms(stime);
-		wq->w.time[TReal] = tk2ms(MACHP(0)->ticks - up->time[TReal]);
+		wq->w.time[TReal] = tk2ms(sys->ticks - up->time[TReal]);
 		if(exitstr && exitstr[0])
 			snprint(wq->w.msg, sizeof(wq->w.msg), "%s %d: %s",
 				up->text, up->pid, exitstr);
@@ -1243,6 +1243,7 @@ procflushseg(Segment *s)
 {
 	int i, ns, nm, nwait;
 	Proc *p;
+	Mach *mp;
 
 	/*
 	 *  tell all processes with this
@@ -1257,9 +1258,11 @@ procflushseg(Segment *s)
 		for(ns = 0; ns < NSEG; ns++){
 			if(p->seg[ns] == s){
 				p->newtlb = 1;
-				for(nm = 0; nm < conf.nmach; nm++){
-					if(MACHP(nm)->proc == p){
-						MACHP(nm)->mmuflush = 1;
+				for(nm = 0; nm < MACHMAX; nm++){
+					if((mp = sys->machptr[nm]) == nil || !mp->online)
+						continue;
+					if(mp->proc == p){
+						mp->mmuflush = 1;
 						nwait++;
 					}
 				}
@@ -1276,10 +1279,12 @@ procflushseg(Segment *s)
 	 *  wait for all processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
-	for(nm = 0; nm < conf.nmach; nm++)
-		if(MACHP(nm) != m)
-			while(MACHP(nm)->mmuflush)
-				sched();
+	for(i = 0; i < MACHMAX; i++){
+		if((mp = sys->machptr[i]) == nil || !mp->online || mp == m)
+			continue;
+		while(mp->mmuflush)
+			sched();
+	}
 }
 
 void
@@ -1340,7 +1345,7 @@ kproc(char *name, void (*func)(void *), void *arg)
 	incref(kpgrp);
 
 	memset(p->time, 0, sizeof(p->time));
-	p->time[TReal] = MACHP(0)->ticks;
+	p->time[TReal] = sys->ticks;
 	ready(p);
 	/*
 	 *  since the bss/data segments are now shareable,

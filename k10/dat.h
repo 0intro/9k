@@ -257,8 +257,9 @@ struct Sys {
 			uintptr	vmunmapped;	/* 1st unmapped va */
 			uintptr	vmend;		/* 1st unusable va */
 
-			int	nmach;
 			u64int	epoch;		/* crude time synchronisation */
+			int	nmach;
+			uint	ticks;		/* since boot (type?) */
 		};
 		uchar	syspage[4*KiB];
 	};
@@ -314,8 +315,6 @@ struct ISAConf {
  * MMU information array machptr, mainly for disambiguation and access to
  * the clock which is only maintained by the bootstrap processor (0).
  */
-#define MACHP(n)	(sys->machptr[n])
-
 extern register Mach* m;			/* R15 */
 extern register Proc* up;			/* R14 */
 

@@ -183,7 +183,7 @@ sysrfork(Ar0* ar0, va_list list)
 
 	pid = p->pid;
 	memset(p->time, 0, sizeof(p->time));
-	p->time[TReal] = MACHP(0)->ticks;
+	p->time[TReal] = sys->ticks;
 
 	kstrdup(&p->text, up->text);
 	kstrdup(&p->user, up->user);

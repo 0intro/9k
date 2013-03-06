@@ -142,7 +142,7 @@ acquire:
 	l->pc = pc;
 	l->p = up;
 	l->isilock = 1;
-	l->m = MACHP(m->machno);
+	l->m = m;
 #ifdef LOCKCYCLES
 	cycles(&l->lockcycles);
 #endif
@@ -163,7 +163,7 @@ canlock(Lock *l)
 		up->lastlock = l;
 	l->pc = getcallerpc(&l);
 	l->p = up;
-	l->m = MACHP(m->machno);
+	l->m = m;
 	l->isilock = 0;
 #ifdef LOCKCYCLES
 	cycles(&l->lockcycles);
