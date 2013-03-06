@@ -14,7 +14,7 @@ dev +dev
 	kprof
 
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum
 
 	uart
 
@@ -90,11 +90,13 @@ dbgflg
 	ioapic		'I'
 	mp		'M'
 	arch		'V'
+	archk8		'V'
+	archk10		'V'
 	sysproc		'E'
 	main		'x'
 	mmu		'm'
 	asm		'a'
-	main		'x'
+	sipi		'y'
 
 amd64 +dev
 	l32p

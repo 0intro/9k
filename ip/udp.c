@@ -24,7 +24,6 @@ enum
 
 	IP_UDPPROTO	= 17,
 	UDP_USEAD7	= 52,
-	UDP_USEAD6	= 36,
 
 	Udprxms		= 200,
 	Udptickms	= 100,
@@ -73,10 +72,10 @@ struct Udp6hdr {
 typedef struct Udpstats Udpstats;
 struct Udpstats
 {
-	ulong	udpInDatagrams;
+	uvlong	udpInDatagrams;
 	ulong	udpNoPorts;
 	ulong	udpInErrors;
-	ulong	udpOutDatagrams;
+	uvlong	udpOutDatagrams;
 };
 
 typedef struct Udppriv Udppriv;
@@ -195,7 +194,7 @@ udpkick(void *x, Block *bp)
 	upriv = c->p->priv;
 	f = c->p->f;
 
-	netlog(c->p->f, Logudp, "udp: kick\n");
+//	netlog(c->p->f, Logudp, "udp: kick\n");	/* frequent and uninteresting */
 	if(bp == nil)
 		return;
 
@@ -214,21 +213,6 @@ udpkick(void *x, Block *bp)
 		if(ipforme(f, laddr) != Runi)
 			findlocalip(f, laddr, raddr);
 		bp->rp += IPaddrlen;		/* Ignore ifc address */
-		rport = nhgets(bp->rp);
-		bp->rp += 2+2;			/* Ignore local port */
-		break;
-	case 6:					/* OBS */
-		/* get user specified addresses */
-		bp = pullupblock(bp, UDP_USEAD6);
-		if(bp == nil)
-			return;
-		ipmove(raddr, bp->rp);
-		bp->rp += IPaddrlen;
-		ipmove(laddr, bp->rp);
-		bp->rp += IPaddrlen;
-		/* pick interface closest to dest */
-		if(ipforme(f, laddr) != Runi)
-			findlocalip(f, laddr, raddr);
 		rport = nhgets(bp->rp);
 		bp->rp += 2+2;			/* Ignore local port */
 		break;
@@ -421,7 +405,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 
 	c = iphtlook(&upriv->ht, raddr, rport, laddr, lport);
 	if(c == nil){
-		/* no converstation found */
+		/* no conversation found */
 		upriv->ustats.udpNoPorts++;
 		qunlock(udp);
 		netlog(f, Logudp, "udp: no conv %I!%d -> %I!%d\n", raddr, rport,
@@ -432,7 +416,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 			icmpnoconv(f, bp);
 			break;
 		case V6:
-			icmphostunr(f, ifc, bp, icmp6_port_unreach, 0);
+			icmphostunr(f, ifc, bp, Icmp6_port_unreach, 0);
 			break;
 		default:
 			panic("udpiput2: version %d", version);
@@ -509,15 +493,6 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 		hnputs(p, rport); p += 2;
 		hnputs(p, lport);
 		break;
-	case 6:					/* OBS */
-		/* pass the src address */
-		bp = padblock(bp, UDP_USEAD6);
-		p = bp->rp;
-		ipmove(p, raddr); p += IPaddrlen;
-		ipmove(p, ipforme(f, laddr)==Runi ? laddr : ifc->lifc->local); p += IPaddrlen;
-		hnputs(p, rport); p += 2;
-		hnputs(p, lport);
-		break;
 	}
 
 	if(bp->next)
@@ -543,14 +518,7 @@ udpctl(Conv *c, char **f, int n)
 
 	ucb = (Udpcb*)c->ptcl;
 	if(n == 1){
-		if(strcmp(f[0], "oldheaders") == 0){	/* OBS */
-			ucb->headers = 6;
-			if (up)
-				print("program %s wrote `oldheaders' to udp "
-					"ctl file; fix or recompile it\n",
-					up->text);
-			return nil;
-		} else if(strcmp(f[0], "headers") == 0){
+		if(strcmp(f[0], "headers") == 0){
 			ucb->headers = 7;	/* new headers format */
 			return nil;
 		}
@@ -587,7 +555,7 @@ udpadvise(Proto *udp, Block *bp, char *msg)
 		break;
 	default:
 		panic("udpadvise: version %d", version);
-		return;  /* to avoid a warning */
+		return;	/* to avoid a warning */
 	}
 
 	/* Look for a connection */
@@ -619,7 +587,8 @@ udpstats(Proto *udp, char *buf, int len)
 	Udppriv *upriv;
 
 	upriv = udp->priv;
-	return snprint(buf, len, "InDatagrams: %lud\nNoPorts: %lud\nInErrors: %lud\nOutDatagrams: %lud\n",
+	return snprint(buf, len, "InDatagrams: %llud\nNoPorts: %lud\n"
+		"InErrors: %lud\nOutDatagrams: %llud\n",
 		upriv->ustats.udpInDatagrams,
 		upriv->ustats.udpNoPorts,
 		upriv->ustats.udpInErrors,
