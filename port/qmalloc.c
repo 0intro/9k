@@ -335,13 +335,10 @@ mallocreadfmt(char* s, char* e)
 	int i, n, t;
 	Qlist *qlist;
 
-	p = seprint(s, e,
-		"%llud memory\n"
-		"%d pagesize\n"
-		"%llud kernel\n",
-		(uvlong)conf.npage*PGSZ,
-		PGSZ,
-		(uvlong)conf.npage-conf.upages);
+	p = seprint(s, e, "%lud/%lud kernel malloc\n",
+		(tailptr-tailbase)*sizeof(Header), 
+		(tailnunits+tailptr-tailbase)*sizeof(Header));
+	p = seprint(p, e, "0/0 kernel draw\n"); // keep scripts happy
 
 	t = 0;
 	for(i = 0; i <= NQUICK; i++) {
@@ -377,11 +374,12 @@ mallocreadfmt(char* s, char* e)
 	p = seprint(p, e, "total allocated %lud, %ud remaining\n",
 		(tailptr-tailbase)*sizeof(Header), tailnunits*sizeof(Header));
 
-	for(i = 0; i < 32; i++){
+	for(i = 0; i < nelem(qstats); i++){
 		if(qstats[i] == 0)
 			continue;
 //		p = seprint(p, e, "qstats[%d] %ud\n", i, qstats[i]);
 	}
+	USED(p);
 	MUNLOCK;
 }
 
@@ -438,7 +436,7 @@ mallocsummary(void)
 	print("total allocated %lud, %ud remaining\n",
 		(tailptr-tailbase)*sizeof(Header), tailnunits*sizeof(Header));
 
-	for(i = 0; i < 32; i++){
+	for(i = 0; i < nelem(qstats); i++){
 		if(qstats[i] == 0)
 			continue;
 		print("qstats[%d] %ud\n", i, qstats[i]);
@@ -505,6 +503,7 @@ void*
 realloc(void* ap, ulong size)
 {
 	void *v;
+	int delta;
 	Header *p;
 	ulong osize;
 	uint nunits, ounits;
@@ -537,19 +536,15 @@ realloc(void* ap, ulong size)
 	/*
 	 * Slightly harder:
 	 * if this allocation abuts the tail, try to just
-	 * adjust the tailptr.
+	 * adjust the tailptr; if shrinking just adjust, if growing
+	 * first check there is enough room after the tail.
 	 */
 	MLOCK;
 	if(tailptr != nil && p+ounits == tailptr){
-		if(ounits > nunits){
+		if((delta = ounits-nunits) > 0 || tailsize <= delta){
 			p->s.size = nunits;
-			tailsize += ounits-nunits;
-			MUNLOCK;
-			return ap;
-		}
-		if(tailsize >= nunits-ounits){
-			p->s.size = nunits;
-			tailsize -= nunits-ounits;
+			tailsize += delta;
+			tailptr -= delta;
 			MUNLOCK;
 			return ap;
 		}
@@ -594,7 +589,7 @@ mallocinit(void)
 
 	tailbase = UINT2PTR(sys->vmunused);
 	tailptr = tailbase;
-	tailnunits = NUNITS(sys->vmend - sys->vmunused);
+	tailnunits = HOWMANY(sys->vmend - sys->vmunused, Unitsz);
 	print("base %#p ptr %#p nunints %ud\n", tailbase, tailptr, tailnunits);
 }
 
@@ -606,10 +601,10 @@ morecore(uint nunits)
 	 * Pump it up when you don't really need it.
 	 * Pump it up until you can feel it.
 	 */
-	if(nunits < NUNITS(128*KiB))
-		nunits = NUNITS(128*KiB);
 	if(nunits > tailnunits)
-		nunits = tailnunits;
+		return 0;
+	if(tailnunits >= NUNITS(128*KiB))
+		nunits = NUNITS(128*KiB);
 	tailnunits -= nunits;
 
 	return nunits;
