@@ -20,7 +20,7 @@ void	cgapost(int);
 void	(*coherence)(void);
 u32int	cpuid(u32int, u32int, u32int[4]);
 int	dbgprint(char*, ...);
-int	decref(Ref*);
+#define decref(r)	adec(&(r)->ref)
 void	delay(int);
 #define	evenaddr(x)				/* x86 doesn't care */
 int	fpudevprocio(Proc*, void*, long, uintptr, int);
@@ -44,7 +44,7 @@ vlong	i8254hz(u32int[2][4]);
 void	idlehands(void);
 void	idthandlers(void);
 int	inb(int);
-int	incref(Ref*);
+#define incref(r)	ainc(&(r)->ref)
 void	insb(int, void*, int);
 ushort	ins(int);
 void	inss(int, void*, int);
