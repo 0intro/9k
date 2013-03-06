@@ -83,9 +83,9 @@ ibrk(uintptr addr, int seg)
 	}
 
 	newtop = ROUNDUP(addr, PGSZ);
-	newsize = (newtop-s->base)/BY2PG;
+	newsize = (newtop-s->base)/PGSZ;
 	if(newtop < s->top) {
-		mfreeseg(s, newtop, (s->top-newtop)/BY2PG);
+		mfreeseg(s, newtop, (s->top-newtop)/PGSZ);
 		s->top = newtop;
 		s->size = newsize;
 		qunlock(&s->lk);
@@ -229,7 +229,7 @@ segattach(Proc* p, int attr, char* name, uintptr va, usize len)
 		}
 	}
 
-	va = va&~(BY2PG-1);
+	va = va&~(PGSZ-1);
 	if(isoverlap(p, va, len) != nil)
 		error(Esoverlap);
 
@@ -239,13 +239,13 @@ segattach(Proc* p, int attr, char* name, uintptr va, usize len)
 
 	error("segment not found");
 found:
-	if((len/BY2PG) > ps->size)
+	if((len/PGSZ) > ps->size)
 		error("len > segment size");
 
 	attr &= ~SG_TYPE;		/* Turn off what is not allowed */
 	attr |= ps->attr;		/* Copy in defaults */
 
-	s = newseg(attr, va, len/BY2PG);
+	s = newseg(attr, va, len/PGSZ);
 	s->pseg = ps;
 	p->seg[sno] = s;
 
@@ -342,14 +342,14 @@ syssegfree(Ar0* ar0, va_list list)
 	if(s == nil)
 		error(Ebadarg);
 	len = va_arg(list, usize);
-	to = (from + len) & ~(BY2PG-1);
+	to = (from + len) & ~(PGSZ-1);
 	if(to < from || to > s->top){
 		qunlock(&s->lk);
 		error(Ebadarg);
 	}
 	from = ROUNDUP(from, PGSZ);
 
-	mfreeseg(s, from, (to - from) / BY2PG);
+	mfreeseg(s, from, (to - from) / PGSZ);
 	qunlock(&s->lk);
 	mmuflush();
 
@@ -402,7 +402,7 @@ syssegflush(Ar0* ar0, va_list list)
 		pe = PTEMAPMEM;
 		if(pe-ps > l){
 			pe = ps + l;
-			pe = (pe+BY2PG-1)&~(BY2PG-1);
+			pe = (pe+PGSZ-1)&~(PGSZ-1);
 		}
 		if(pe == ps) {
 			qunlock(&s->lk);
@@ -410,7 +410,7 @@ syssegflush(Ar0* ar0, va_list list)
 		}
 
 		if(pte)
-			pteflush(pte, ps/BY2PG, pe/BY2PG);
+			pteflush(pte, ps/PGSZ, pe/PGSZ);
 
 		chunk = pe-ps;
 		len -= chunk;

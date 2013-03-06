@@ -807,7 +807,7 @@ attach(Ether *e)
 		nexterror();
 	}
 	for(c->nrb = 0; c->nrb < 2*Nrb; c->nrb++){
-		if(!(b = allocb(c->rbsz+BY2PG)))
+		if(!(b = allocb(c->rbsz+PGSZ)))
 			error(Enomem);
 		b->free = rbfree;
 		freeb(b);

@@ -1575,11 +1575,11 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 	pte = s->map[soff/PTEMAPMEM];
 	if(pte == 0)
 		panic("procctlmemio");
-	pg = pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	pg = pte->pages[(soff&(PTEMAPMEM-1))/PGSZ];
 	if(pagedout(pg))
 		panic("procctlmemio1");
 
-	l = BY2PG - (offset&(BY2PG-1));
+	l = PGSZ - (offset&(PGSZ-1));
 	if(n > l)
 		n = l;
 
@@ -1590,7 +1590,7 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 		nexterror();
 	}
 	b = (uchar*)VA(k);
-	b += offset&(BY2PG-1);
+	b += offset&(PGSZ-1);
 	if(read == 1)
 		memmove(va, b, n);	/* This can fault */
 	else

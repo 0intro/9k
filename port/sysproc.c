@@ -367,7 +367,7 @@ sysexec(Ar0* ar0, va_list list)
 		qunlock(&up->seglock);
 		nexterror();
 	}
-	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, USTKSIZE/BY2PG);
+	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, USTKSIZE/PGSZ);
 
 	/*
 	 * Stack is a pointer into the temporary stack
@@ -447,7 +447,7 @@ sysexec(Ar0* ar0, va_list list)
 	 */
 	a = p = UINT2PTR(stack);
 	stack = sysexecstack(stack, argc);
-	if(stack-(argc+1)*sizeof(char**)-BY2PG < TSTKTOP-USTKSIZE)
+	if(stack-(argc+1)*sizeof(char**)-PGSZ < TSTKTOP-USTKSIZE)
 		error(Ebadexec);
 
 	argv = (char**)stack;

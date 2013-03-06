@@ -57,7 +57,7 @@ newswap(void)
 	swapalloc.last = look;
 	swapalloc.free--;
 	unlock(&swapalloc);
-	return (look-swapalloc.swmap) * BY2PG;
+	return (look-swapalloc.swmap) * PGSZ;
 }
 
 void
@@ -66,7 +66,7 @@ putswap(Page *p)
 	uchar *idx;
 
 	lock(&swapalloc);
-	idx = &swapalloc.swmap[PTR2UINT(p)/BY2PG];
+	idx = &swapalloc.swmap[PTR2UINT(p)/PGSZ];
 	if(--(*idx) == 0) {
 		swapalloc.free++;
 		if(idx < swapalloc.last)
@@ -81,7 +81,7 @@ void
 dupswap(Page *p)
 {
 	lock(&swapalloc);
-	if(++swapalloc.swmap[PTR2UINT(p)/BY2PG] == 0)
+	if(++swapalloc.swmap[PTR2UINT(p)/PGSZ] == 0)
 		panic("dupswap");
 	unlock(&swapalloc);
 }
@@ -89,7 +89,7 @@ dupswap(Page *p)
 int
 swapcount(ulong daddr)
 {
-	return swapalloc.swmap[daddr/BY2PG];
+	return swapalloc.swmap[daddr/PGSZ];
 }
 
 void
@@ -357,8 +357,8 @@ executeio(void)
 		if(waserror())
 			panic("executeio: page out I/O error");
 
-		n = c->dev->write(c, kaddr, BY2PG, out->daddr);
-		if(n != BY2PG)
+		n = c->dev->write(c, kaddr, PGSZ, out->daddr);
+		if(n != PGSZ)
 			nexterror();
 
 		kunmap(k);
@@ -405,8 +405,8 @@ setswapchan(Chan *c)
 			error("stat failed in setswapchan");
 		}
 		convM2D(dirbuf, n, &d, nil);
-		if(d.length < conf.nswap*BY2PG){
-			conf.nswap = d.length/BY2PG;
+		if(d.length < conf.nswap*PGSZ){
+			conf.nswap = d.length/PGSZ;
 			swapalloc.top = &swapalloc.swmap[conf.nswap];
 			swapalloc.free = conf.nswap;
 		}

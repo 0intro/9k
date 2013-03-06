@@ -987,8 +987,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 			"%llud kernel\n"
 			"%lud/%lud user\n"
 			"%lud/%lud swap\n",
-			(uvlong)conf.npage*BY2PG,
-			BY2PG,
+			(uvlong)conf.npage*PGSZ,
+			PGSZ,
 			(uvlong)conf.npage-conf.upages,
 			palloc.user-palloc.freecount, palloc.user,
 			conf.nswap-swapalloc.free, conf.nswap);

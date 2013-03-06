@@ -70,14 +70,14 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 	Page **pg, *lkp, *new;
 	Page *(*fn)(Segment*, uintptr);
 
-	addr &= ~(BY2PG-1);
+	addr &= ~(PGSZ-1);
 	soff = addr-s->base;
 	p = &s->map[soff/PTEMAPMEM];
 	if(*p == 0)
 		*p = ptealloc();
 
 	etp = *p;
-	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	pg = &etp->pages[(soff&(PTEMAPMEM-1))/PGSZ];
 	type = s->type&SG_TYPE;
 
 	if(pg < etp->first)
@@ -203,8 +203,8 @@ retry:
 
 		c = s->image->c;
 		ask = s->flen-soff;
-		if(ask > BY2PG)
-			ask = BY2PG;
+		if(ask > PGSZ)
+			ask = PGSZ;
 	}
 	else {			/* from a swap image */
 		daddr = swapaddr(loadrec);
@@ -216,7 +216,7 @@ retry:
 		}
 
 		c = swapimage.c;
-		ask = BY2PG;
+		ask = PGSZ;
 	}
 	qunlock(&s->lk);
 
@@ -235,8 +235,8 @@ retry:
 	n = c->dev->read(c, kaddr, ask, daddr);
 	if(n != ask)
 		faulterror(Eioload, c, 0);
-	if(ask < BY2PG)
-		memset(kaddr+ask, 0, BY2PG-ask);
+	if(ask < PGSZ)
+		memset(kaddr+ask, 0, PGSZ-ask);
 
 	poperror();
 	kunmap(k);
@@ -334,7 +334,7 @@ vmemchr(void *s, int c, int n)
 	a = PTR2UINT(s);
 	while(ROUNDUP(a, PGSZ) != ROUNDUP(a+n-1, PGSZ)){
 		/* spans pages; handle this page */
-		m = BY2PG - (a & (BY2PG-1));
+		m = PGSZ - (a & (PGSZ-1));
 		t = memchr(UINT2PTR(a), c, m);
 		if(t)
 			return t;

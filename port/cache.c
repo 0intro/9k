@@ -111,9 +111,9 @@ cinit(void)
 	mc = cache.head;
 
 	/* a better algorithm would be nice */
-//	if(conf.npage*BY2PG > 200*MB)
+//	if(conf.npage*PGSZ > 200*MB)
 //		maxcache = 10*MAXCACHE;
-//	if(conf.npage*BY2PG > 400*MB)
+//	if(conf.npage*PGSZ > 400*MB)
 //		maxcache = 50*MAXCACHE;
 
 	for(i = 0; i < NFILE-1; i++) {
@@ -366,8 +366,8 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 			break;
 		}
 		l = len;
-		if(l > BY2PG)
-			l = BY2PG;
+		if(l > PGSZ)
+			l = PGSZ;
 
 		e->cache = p;
 		e->start = offset;
@@ -375,10 +375,10 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 
 		lock(&cache);
 		e->bid = cache.pgno;
-		cache.pgno += BY2PG;
+		cache.pgno += PGSZ;
 		/* wrap the counter; low bits are unused by pghash but checked by lookpage */
-		if((cache.pgno & ~(BY2PG-1)) == 0){
-			if(cache.pgno == BY2PG-1){
+		if((cache.pgno & ~(PGSZ-1)) == 0){
+			if(cache.pgno == PGSZ-1){
 				print("cache wrapped\n");
 				cache.pgno = 0;
 			}else
@@ -502,10 +502,10 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 	}
 
 	/* try and pack data into the predecessor */
-	if(offset == ee && p->len < BY2PG) {
+	if(offset == ee && p->len < PGSZ) {
 		o = len;
-		if(o > BY2PG - p->len)
-			o = BY2PG - p->len;
+		if(o > PGSZ - p->len)
+			o = PGSZ - p->len;
 		if(cpgmove(p, buf, p->len, o)) {
 			p->len += o;
 			buf += o;
@@ -564,10 +564,10 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 		ee = p->start+p->len;
 		eo = offset - p->start;
 		/* pack in predecessor if there is space */
-		if(offset <= ee && eo < BY2PG) {
+		if(offset <= ee && eo < PGSZ) {
 			o = len;
-			if(o > BY2PG - eo)
-				o = BY2PG - eo;
+			if(o > PGSZ - eo)
+				o = PGSZ - eo;
 			if(cpgmove(p, buf, eo, o)) {
 				if(eo+o > p->len)
 					p->len = eo+o;

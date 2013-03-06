@@ -1476,7 +1476,7 @@ killbig(char *why)
 	for(i = 0; i < NSEG; i++) {
 		s = kp->seg[i];
 		if(s != 0 && canqlock(&s->lk)) {
-			mfreeseg(s, s->base, (s->top - s->base)/BY2PG);
+			mfreeseg(s, s->base, (s->top - s->base)/PGSZ);
 			qunlock(&s->lk);
 		}
 	}
