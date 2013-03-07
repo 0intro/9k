@@ -111,7 +111,8 @@ enum {					/* Tcr */
 	Macv14		= 0x30800000,	/* RTL8100E */
 	Macv15		= 0x38800000,	/* RTL8100E */
 	Macv25		= 0x28000000,	/* RTL8168D */
-	MacvXX		= 0x2c000000,	/* RTL8168E */
+	Macv2c		= 0x2c000000,	/* RTL8168E */
+	Macv2ca		= 0x2c800000,	/* RTL8111E */
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
 };
@@ -684,7 +685,12 @@ rtl8169init(Ether* edev)
 	cplusc |= /*Rxchksum|*/Mulrw;
 	switch(ctlr->macv){
 	default:
-		return -1;
+		/*
+		 * If it isn't recognised, assume it behaves
+		 * like all the recent chips.
+		 */
+		print("rtl8169: unrecognised macv %#ux\n", ctlr->macv);
+		break;
 	case Macv01:
 		ctlr->mtps = HOWMANY(Mps, 32);
 		break;
@@ -723,7 +729,8 @@ rtl8169init(Ether* edev)
 	case Macv14:
 	case Macv15:
 	case Macv25:
-	case MacvXX:
+	case Macv2c:
+	case Macv2ca:
 		break;
 	}
 

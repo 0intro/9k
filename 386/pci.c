@@ -151,19 +151,19 @@ pcisizcmp(void *a, void *b)
 static ulong
 pcimask(ulong v)
 {
-	ulong m;
+	ulong mask;
 
-	m = BI2BY*sizeof(v);
-	for(m = 1<<(m-1); m != 0; m >>= 1) {
-		if(m & v)
+	mask = BI2BY*sizeof(v);
+	for(mask = 1<<(mask-1); mask != 0; mask >>= 1) {
+		if(mask & v)
 			break;
 	}
 
-	m--;
-	if((v & m) == 0)
+	mask--;
+	if((v & mask) == 0)
 		return v;
 
-	v |= m;
+	v |= mask;
 	return v+1;
 }
 

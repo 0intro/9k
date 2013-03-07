@@ -109,7 +109,6 @@ struct Conf
 	Confmem	mem[4];		/* physical memory */
 	uvlong	npage;		/* total physical pages of memory */
 	usize	upages;		/* user page pool */
-	ulong	copymode;	/* 0 is copy on write, 1 is copy on reference */
 	ulong	ialloc;		/* max interrupt time allocation in bytes */
 	ulong	pipeqsize;	/* size in bytes of pipe queues */
 	ulong	nimage;		/* number of page cache image headers */
@@ -260,6 +259,7 @@ struct Sys {
 			u64int	epoch;		/* crude time synchronisation */
 			int	nmach;
 			uint	ticks;		/* since boot (type?) */
+			uint	copymode;	/* 0 is COW, 1 is copy on ref */
 		};
 		uchar	syspage[4*KiB];
 	};

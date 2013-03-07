@@ -1465,7 +1465,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 	Secret *volatile tos, *volatile toc;
 	Block *volatile b;
 	Cmdbuf *volatile cb;
-	int m, ty;
+	int i, ty;
 	char *p, *e;
 	uchar *volatile x;
 	ulong offset = off;
@@ -1481,22 +1481,22 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		p = a;
 		e = p + n;
 		do{
-			m = e - p;
-			if(m > MaxRecLen)
-				m = MaxRecLen;
+			i = e - p;
+			if(i > MaxRecLen)
+				i = MaxRecLen;
 
-			b = allocb(m);
+			b = allocb(i);
 			if(waserror()){
 				freeb(b);
 				nexterror();
 			}
-			memmove(b->wp, p, m);
+			memmove(b->wp, p, i);
 			poperror();
-			b->wp += m;
+			b->wp += i;
 
 			tlsbwrite(c, b, offset);
 
-			p += m;
+			p += i;
 		}while(p < e);
 		return n;
 	case Qctl:
@@ -1528,11 +1528,11 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			error("usage: fd open-fd version");
 		if(tr->c != nil)
 			error(Einuse);
-		m = strtol(cb->f[2], nil, 0);
-		if(m < MinProtoVersion || m > MaxProtoVersion)
+		i = strtol(cb->f[2], nil, 0);
+		if(i < MinProtoVersion || i > MaxProtoVersion)
 			error("unsupported version");
 		tr->c = buftochan(cb->f[1]);
-		tr->version = m;
+		tr->version = i;
 		tlsSetState(tr, SHandshake, SClosed);
 	}else if(strcmp(cb->f[0], "version") == 0){
 		if(cb->nf != 2)
@@ -1541,15 +1541,15 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			error("must set fd before version");
 		if(tr->verset)
 			error("version already set");
-		m = strtol(cb->f[1], nil, 0);
-		if(m == SSL3Version)
+		i = strtol(cb->f[1], nil, 0);
+		if(i == SSL3Version)
 			tr->packMac = sslPackMac;
-		else if(m == TLSVersion)
+		else if(i == TLSVersion)
 			tr->packMac = tlsPackMac;
 		else
 			error("unsupported version");
 		tr->verset = 1;
-		tr->version = m;
+		tr->version = i;
 	}else if(strcmp(cb->f[0], "secret") == 0){
 		if(cb->nf != 5)
 			error("usage: secret hashalg encalg isclient secretdata");
@@ -1569,8 +1569,8 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		ea = parseencalg(cb->f[2]);
 
 		p = cb->f[4];
-		m = (strlen(p)*3)/2;
-		x = smalloc(m);
+		i = (strlen(p)*3)/2;
+		x = smalloc(i);
 		tos = nil;
 		toc = nil;
 		if(waserror()){
@@ -1579,8 +1579,8 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			free(x);
 			nexterror();
 		}
-		m = dec64(x, m, p, strlen(p));
-		if(m < 2 * ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
+		i = dec64(x, i, p, strlen(p));
+		if(i < 2 * ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
 			error("not enough secret data provided");
 
 		tos = smalloc(sizeof(Secret));
@@ -1654,7 +1654,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			error("usage: alert n");
 		if(tr->c == nil)
 			error("must set fd before sending alerts");
-		m = strtol(cb->f[1], nil, 0);
+		i = strtol(cb->f[1], nil, 0);
 
 		qunlock(&tr->in.seclock);
 		qunlock(&tr->out.seclock);
@@ -1662,7 +1662,7 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		free(cb);
 		poperror();
 
-		sendAlert(tr, m);
+		sendAlert(tr, i);
 
 		if(m == ECloseNotify)
 			tlsclosed(tr, SLClose);

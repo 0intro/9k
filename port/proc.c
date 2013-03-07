@@ -662,7 +662,7 @@ procwired(Proc *p, int bm)
 			psdecref(pp);
 		}
 		bm = 0;
-		for(i=0; i<conf.nmach; i++)
+		for(i=0; i<MACHMAX; i++)
 			if(nwired[i] < nwired[bm])
 				bm = i;
 	} else {

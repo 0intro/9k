@@ -141,7 +141,7 @@ sysrfork(Ar0* ar0, va_list list)
 		incref(p->pgrp);
 	}
 	if(flag & RFNOMNT)
-		up->pgrp->noattach = 1;
+		p->pgrp->noattach = 1;
 
 	if(flag & RFREND)
 		p->rgrp = newrgrp();
@@ -243,7 +243,7 @@ sysexec(Ar0* ar0, va_list list)
 	char *a, **argv, *elem, *file, *p;
 	char line[sizeof(Exec)], *progarg[sizeof(Exec)/2+1];
 	long hdrsz, magic, textsz, datasz, bsssz;
-	uintptr textlim, datalim, bsslim, entry, stack;
+	uintptr textlim, textmin, datalim, bsslim, entry, stack;
 
 	/*
 	 * void* exec(char* name, char* argv[]);
@@ -329,7 +329,8 @@ sysexec(Ar0* ar0, va_list list)
 	datasz = l2be(hdr.data);
 	bsssz = l2be(hdr.bss);
 
-	textlim = UTROUND(UTZERO+hdrsz+textsz);
+	textmin = ROUNDUP(UTZERO+hdrsz+textsz, PGSZ);
+	textlim = UTROUND(textmin);
 	datalim = ROUNDUP(textlim+datasz, PGSZ);
 	bsslim = ROUNDUP(textlim+datasz+bsssz, PGSZ);
 
@@ -518,7 +519,7 @@ sysexec(Ar0* ar0, va_list list)
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
 
-	img = attachimage(SG_TEXT|SG_RONLY, chan, UTZERO, (textlim-UTZERO)>>PGSHFT);
+	img = attachimage(SG_TEXT|SG_RONLY, chan, UTZERO, (textmin-UTZERO)>>PGSHFT);
 	s = img->s;
 	up->seg[TSEG] = s;
 	s->flushme = 1;

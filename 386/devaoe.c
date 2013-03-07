@@ -1195,11 +1195,11 @@ readmem(ulong off, void *dst, long n, void *src, long size)
 static char *
 pflag(char *s, char *e, uchar f)
 {
-	uchar i, m;
+	uchar i, mask;
 
 	for(i = 0; i < 8; i++){
-		m = 1 << i;
-		if(f & m)
+		mask = 1 << i;
+		if(f & mask)
 			s = seprint(s, e, "%s ", flagname[i]? flagname[i]: "oops");
 	}
 	return seprint(s, e, "\n");
@@ -1444,19 +1444,19 @@ static int getmtu(Chan*);
 static int
 devmaxdata(Aoedev *d)
 {
-	int i, m, mtu;
-	Devlink *l;
-	Netlink *n;
+	int i, mtu, n;
+	Devlink *dl;
+	Netlink *nl;
 
 	mtu = 100000;
 	for(i = 0; i < d->ndl; i++){
-		l = d->dl + i;
-		n = l->nl;
-		if((l->flag & Dup) == 0 || (n->flag & Dup) == 0)
+		dl = d->dl + i;
+		nl = dl->nl;
+		if((dl->flag & Dup) == 0 || (nl->flag & Dup) == 0)
 			continue;
-		m = getmtu(n->mtu);
-		if(m < mtu)
-			mtu = m;
+		n = getmtu(nl->mtu);
+		if(n < mtu)
+			mtu = n;
 	}
 	if(mtu == 100000)
 		mtu = 0;
@@ -1477,7 +1477,8 @@ static void ataident(Aoedev*);
 static long
 unitctlwrite(Aoedev *d, void *db, long n)
 {
-	uint maxbcnt, m;
+	int j;
+	uint bcnt, maxbcnt;
 	uvlong bsize;
 	enum {
 		Failio,
@@ -1514,11 +1515,11 @@ unitctlwrite(Aoedev *d, void *db, long n)
 		ataident(d);
 		break;
 	case Jumbo:
-		m = 0;
+		j = 0;
 		if(d->flag & Djumbo)
-			m = 1;
-		toggle(cb->f[1], m);
-		if(m)
+			j = 1;
+		toggle(cb->f[1], j);
+		if(j)
 			d->flag |= Djumbo;
 		else
 			d->flag &= ~Djumbo;
@@ -1529,16 +1530,16 @@ unitctlwrite(Aoedev *d, void *db, long n)
 		if(cb->nf > 2)
 			error(Ecmdargs);
 		if(cb->nf == 2){
-			m = strtoul(cb->f[1], 0, 0);
+			bcnt = strtoul(cb->f[1], 0, 0);
 			if(ct->index == Maxbno)
-				m *= Aoesectsz;
+				bcnt *= Aoesectsz;
 			else{
-				m -= AOEATASZ;
-				m &= ~(Aoesectsz-1);
+				bcnt -= AOEATASZ;
+				bcnt &= ~(Aoesectsz-1);
 			}
-			if(m > maxbcnt)
+			if(bcnt > maxbcnt)
 				cmderror(cb, "maxb greater than media mtu");
-			maxbcnt = m;
+			maxbcnt = bcnt;
 		}
 		d->maxbcnt = maxbcnt;
 		break;

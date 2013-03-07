@@ -26,8 +26,8 @@ newseg(int type, uintptr base, usize size)
 	mapsize = HOWMANY(size, PTEPERTAB);
 	if(mapsize > nelem(s->ssegmap)){
 		mapsize *= 2;
-		if(mapsize > (SEGMAPSIZE*PTEPERTAB))
-			mapsize = (SEGMAPSIZE*PTEPERTAB);
+		if(mapsize > SEGMAPSIZE)
+			mapsize = SEGMAPSIZE;
 		s->map = smalloc(mapsize*sizeof(Pte*));
 		s->mapsize = mapsize;
 	}

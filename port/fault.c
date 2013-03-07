@@ -120,7 +120,7 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 		 *  It's only possible to copy on write if
 		 *  we're the only user of the segment.
 		 */
-		if(read && conf.copymode == 0 && s->ref == 1) {
+		if(read && sys->copymode == 0 && s->ref == 1) {
 			mmuphys = PPN((*pg)->pa)|PTERONLY|PTEVALID;
 			(*pg)->modref |= PG_REF;
 			break;
@@ -327,19 +327,19 @@ validaddr(void* addr, long len, int write)
 void*
 vmemchr(void *s, int c, int n)
 {
-	int m;
+	int r;
 	uintptr a;
 	void *t;
 
 	a = PTR2UINT(s);
 	while(ROUNDUP(a, PGSZ) != ROUNDUP(a+n-1, PGSZ)){
 		/* spans pages; handle this page */
-		m = PGSZ - (a & (PGSZ-1));
-		t = memchr(UINT2PTR(a), c, m);
+		r = PGSZ - (a & (PGSZ-1));
+		t = memchr(UINT2PTR(a), c, r);
 		if(t)
 			return t;
-		a += m;
-		n -= m;
+		a += r;
+		n -= r;
 		if((a & KZERO) != KZERO)
 			validaddr(UINT2PTR(a), 1, 0);
 	}

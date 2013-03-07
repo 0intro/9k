@@ -184,6 +184,7 @@ main(u32int ax, u32int bx)
 	vsvminit(MACHSTKSZ);
 
 	conf.nmach = 1;				/* put off until later? */
+	sys->copymode = 0;			/* COW */
 	active.machs = 1;
 	active.exiting = 0;
 
@@ -259,7 +260,7 @@ main(u32int ax, u32int bx)
 	/*
 	 * Release the hounds.
 	 */
-	for(i = 1; i < sys->nmach; i++){
+	for(i = 1; i < MACHMAX; i++){
 		if(sys->machptr[i] == nil)
 			continue;
 

@@ -31,8 +31,7 @@ growfd(Fgrp *f, int fd)	/* fd is always >= 0 */
 	if(fd >= f->nfd+DELTAFD)
 		return -1;	/* out of range */
 	/*
-	 * Unbounded allocation is unwise; besides, there are only 16 bits
-	 * of fid in 9P
+	 * Unbounded allocation is unwise.
 	 */
 	if(f->nfd >= 5000){
     Exhausted:
@@ -1408,7 +1407,7 @@ sysfwstat(Ar0* ar0, va_list list)
 	/*
 	 * int fwstat(int fd, uchar* edir, int nedir);
 	 * should really be
-	 * usize wstat(int fd, uchar* edir, usize nedir);
+	 * usize fwstat(int fd, uchar* edir, usize nedir);
 	 * but returning an unsigned is probably too
 	 * radical.
 	 */
@@ -1423,147 +1422,16 @@ sysfwstat(Ar0* ar0, va_list list)
 	ar0->l = wstat(c, p, n);
 }
 
-static void
-packoldstat(uchar *buf, Dir *d)
+void
+sys_stat(Ar0*, va_list)
 {
-	uchar *p;
-	ulong q;
-
-	/* lay down old stat buffer - grotty code but it's temporary */
-	p = buf;
-	strncpy((char*)p, d->name, 28);
-	p += 28;
-	strncpy((char*)p, d->uid, 28);
-	p += 28;
-	strncpy((char*)p, d->gid, 28);
-	p += 28;
-	q = d->qid.path & ~DMDIR;	/* make sure doesn't accidentally look like directory */
-	if(d->qid.type & QTDIR)	/* this is the real test of a new directory */
-		q |= DMDIR;
-	PBIT32(p, q);
-	p += BIT32SZ;
-	PBIT32(p, d->qid.vers);
-	p += BIT32SZ;
-	PBIT32(p, d->mode);
-	p += BIT32SZ;
-	PBIT32(p, d->atime);
-	p += BIT32SZ;
-	PBIT32(p, d->mtime);
-	p += BIT32SZ;
-	PBIT64(p, d->length);
-	p += BIT64SZ;
-	PBIT16(p, d->type);
-	p += BIT16SZ;
-	PBIT16(p, d->dev);
+	error("old stat system call - recompile");
 }
 
 void
-sys_stat(Ar0* ar0, va_list list)
+sys_fstat(Ar0*, va_list)
 {
-	Chan *c;
-	long l;
-	uchar buf[128], *p;
-	char *aname, *name, strs[128];
-	Dir d;
-	char old[] = "old stat system call - recompile";
-
-	/*
-	 * int stat(char* name, char* edir);
-	 * should have been
-	 * usize stat(char* name, uchar* edir));
-	 *
-	 * Deprecated; backwards compatibility only.
-	 */
-	aname = va_arg(list, char*);
-	p = va_arg(list, uchar*);
-
-	/*
-	 * Old DIRLEN (116) plus a little should be plenty
-	 * for the buffer sizes.
-	 */
-	p = validaddr(p, 116, 1);
-	
-	c = namec(validaddr(aname, 1, 0), Aaccess, 0, 0);
-	if(waserror()){
-		cclose(c);
-		nexterror();
-	}
-	l = c->dev->stat(c, buf, sizeof buf);
-
-	/*
-	 * Buf contains a new stat buf; convert to old.
-	 * Yuck.
-	 * If buffer too small, time to face reality.
-	 */
-	if(l <= BIT16SZ)
-		error(old);
-	name = pathlast(c->path);
-	if(name)
-		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
-	l = convM2D(buf, l, &d, strs);
-	if(l == 0)
-		error(old);
-	packoldstat(p, &d);
-
-	poperror();
-	cclose(c);
-
-	ar0->i = 0;
-}
-
-void
-sys_fstat(Ar0* ar0, va_list list)
-{
-	Chan *c;
-	char *name;
-	long l;
-	uchar buf[128], *p;
-	char strs[128];
-	Dir d;
-	int fd;
-	char old[] = "old fstat system call - recompile";
-
-	/*
-	 * int fstat(int fd, char* edir);
-	 * should have been
-	 * usize fstat(int fd, uchar* edir));
-	 *
-	 * Deprecated; backwards compatibility only.
-	 */
-	fd = va_arg(list, int);
-	p = va_arg(list, uchar*);
-
-	/*
-	 * Old DIRLEN (116) plus a little should be plenty
-	 * for the buffer sizes.
-	 */
-	p = validaddr(p, 116, 1);
-	c = fdtochan(fd, -1, 0, 1);
-	if(waserror()){
-		cclose(c);
-		nexterror();
-	}
-	l = c->dev->stat(c, buf, sizeof buf);
-
-	/*
-	 * Buf contains a new stat buf; convert to old.
-	 * Yuck.
-	 * If buffer too small, time to face reality.
-	 */
-	if(l <= BIT16SZ)
-		error(old);
-	name = pathlast(c->path);
-	if(name)
-		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
-	l = convM2D(buf, l, &d, strs);
-	if(l == 0)
-		error(old);
-	packoldstat(p, &d);
-
-	poperror();
-	cclose(c);
-
-	ar0->i = 0;
+	error("old fstat system call - recompile");
 }
 
 void

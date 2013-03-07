@@ -98,7 +98,7 @@ static long
 irqallocread(Chan*, void *vbuf, long n, vlong offset)
 {
 	char *buf, *p, str[2*(11+1)+KNAMELEN+1+1];
-	int m, vno;
+	int ns, vno;
 	long oldn;
 	Vctl *v;
 
@@ -109,21 +109,21 @@ irqallocread(Chan*, void *vbuf, long n, vlong offset)
 	buf = vbuf;
 	for(vno=0; vno<nelem(vctl); vno++){
 		for(v=vctl[vno]; v; v=v->next){
-			m = snprint(str, sizeof str, "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
-			if(m <= offset)	/* if do not want this, skip entry */
-				offset -= m;
+			ns = snprint(str, sizeof str, "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
+			if(ns <= offset)	/* if do not want this, skip entry */
+				offset -= ns;
 			else{
 				/* skip offset bytes */
-				m -= offset;
+				ns -= offset;
 				p = str+offset;
 				offset = 0;
 
-				/* write at most max(n,m) bytes */
-				if(m > n)
-					m = n;
-				memmove(buf, p, m);
-				n -= m;
-				buf += m;
+				/* write at most max(n,ns) bytes */
+				if(ns > n)
+					ns = n;
+				memmove(buf, p, ns);
+				n -= ns;
+				buf += ns;
 
 				if(n == 0)
 					return oldn;
