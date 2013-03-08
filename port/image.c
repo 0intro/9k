@@ -9,6 +9,11 @@
 #define IHASHSIZE	64
 #define ihash(s)	imagealloc.hash[s%IHASHSIZE]
 
+enum
+{
+	NIMAGE = 200,
+};
+
 static struct Imagealloc
 {
 	Lock;
@@ -34,10 +39,10 @@ initimage(void)
 {
 	Image *i, *ie;
 
-	imagealloc.free = malloc(conf.nimage*sizeof(Image));
+	imagealloc.free = malloc(NIMAGE*sizeof(Image));
 	if(imagealloc.free == nil)
 		panic("imagealloc: no memory");
-	ie = &imagealloc.free[conf.nimage-1];
+	ie = &imagealloc.free[NIMAGE-1];
 	for(i = imagealloc.free; i < ie; i++)
 		i->next = i+1;
 	i->next = 0;

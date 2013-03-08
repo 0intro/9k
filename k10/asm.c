@@ -8,19 +8,6 @@
 #include "dat.h"
 #include "fns.h"
 
-/*
- * Address Space Map.
- * Low duty cycle.
- */
-typedef struct Asm Asm;
-typedef struct Asm {
-	uintmem	addr;
-	uintmem	size;
-	int	type;
-	int	location;
-	Asm*	next;
-} Asm;
-
 enum {
 	AsmNONE		= 0,
 	AsmMEMORY	= 1,
@@ -36,7 +23,7 @@ static Asm asmarray[64] = {
 	{ 0, ~0, AsmNONE, nil, },
 };
 static int asmindex = 1;
-static Asm* asmlist = &asmarray[0];
+Asm* asmlist = &asmarray[0];
 static Asm* asmfreelist;
 
 /*static*/ void
@@ -285,22 +272,15 @@ asmwalkalloc(usize size)
 
 static int npg[4];
 
-// still needed so iallocb gets initialised correctly. needs to go.
-#define ConfCrap
-
 void
 asmmeminit(void)
 {
-	int i, l;
 	Asm* asm;
 	PTE *pte;
-	uintptr va;
+	int i, j, l;
+	uintptr n, va;
 	uintmem hi, lo, mem, nextmem, pa;
-#ifdef ConfCrap
-	int cx, j, n;
-	Confmem *cm;
 	Pallocmem *pm;
-#endif /* ConfCrap */
 
 	/*
 	 * to do here (done?):
@@ -323,7 +303,9 @@ asmmeminit(void)
 		panic("asmmeminit 2");
 	DBG("pa %#llux mem %#llux\n", pa, mem);
 
-	/* assume already 2MiB aligned*/
+	/*
+	 * Assume already 2MiB aligned; currently this is done in mmuinit.
+	 */
 	while(sys->vmunmapped < sys->vmend){
 		l = mmuwalk(sys->vmunmapped, 1, &pte, asmwalkalloc);
 		DBG("%#p l %d\n", sys->vmunmapped, l); USED(l);
@@ -332,9 +314,6 @@ asmmeminit(void)
 		pa += 2*MiB;
 	}
 
-#ifdef ConfCrap
-	cx = 0;
-#endif /* ConfCrap */
 	for(asm = asmlist; asm != nil; asm = asm->next){
 		if(asm->type != AsmMEMORY)
 			continue;
@@ -355,10 +334,11 @@ asmmeminit(void)
 					continue;
 				if(mem + PGLSZ(i) > hi)
 					continue;
-				/* This page fits entirely within the range. */
-				/* Mark it a usable */
-//				print("%#P %d\n", mem, i);
 
+				/*
+				 * This page fits entirely within the range,
+				 * mark it as usable.
+				 */
 				if((l = mmuwalk(va, i, &pte, asmwalkalloc)) < 0)
 					panic("asmmeminit 3");
 
@@ -367,62 +347,36 @@ asmmeminit(void)
 					*pte |= PtePS;
 
 				nextmem = mem + PGLSZ(i);
-/* touch it */
-*((uintptr*)va) = 0;
 				va += PGLSZ(i);
 				npg[i]++;
 				break;
 			}
 		}
 
-#ifdef ConfCrap
-		/*
-		 * Fill in conf crap.
-		 */
-		if(cx >= nelem(conf.mem))
-			continue;
 		lo = ROUNDUP(asm->addr, PGSZ);
-if(lo >= 600ull*MiB)
-    continue;
-		conf.mem[cx].base = lo;
+		asm->base = lo;
 		hi = ROUNDDN(hi, PGSZ);
-if(hi > 600ull*MiB)
-  hi = 600*MiB;
-		conf.mem[cx].npage = (hi - lo)/PGSZ;
-		conf.npage += conf.mem[cx].npage;
-		print("cm %d: addr %#llux npage %lud\n",
-			cx, conf.mem[cx].base, conf.mem[cx].npage);
-		cx++;
-#endif /* ConfCrap */
+		asm->kbase = PTR2UINT(KADDR(asm->base));
+		asm->npage = (ROUNDDN(hi, PGSZ) - asm->base)/PGSZ;
 	}
 	print("%d %d %d\n", npg[0], npg[1], npg[2]);
 
-#ifdef ConfCrap
-	/*
-	 * Fill in more conf crap.
-	 * This is why I hate Plan 9.
-	 */
-	conf.upages = conf.npage;
 	i = (sys->vmend - sys->vmstart)/PGSZ;		/* close enough */
-	conf.ialloc = (i/2)*PGSZ;
-	print("npage %llud upage %lud kpage %d\n",
-		conf.npage, conf.upages, i);
-
+	ialloclimit((i/2)*PGSZ);
 	pm = palloc.mem;
 	j = 0;
-	for(i = 0; i <nelem(conf.mem); i++){
-		cm = &conf.mem[i];
-		n = cm->npage;
+	for(asm = asmlist; asm != nil; asm = asm->next){
+		n = asm->npage;
 		if(pm >= palloc.mem+nelem(palloc.mem)){
-			print("xinit: losing %lud pages\n", cm->npage-n);
+			print("asmmeminit: losing %lud pages\n", asm->npage-n);
 			continue;
 		}
-		pm->base = cm->base;
-		pm->npage = cm->npage;
-print("cm%d: base %#p npage %#ld\n", i, cm->base, cm->npage);
-print("pm%d: base %#p npage %#ld\n", j, pm->base, pm->npage);
+		pm->base = asm->base;
+		pm->npage = asm->npage;
+
+print("asm: base %#p npage %#ld; pm%d: base %#p npage %#ld\n",
+	asm->base, asm->npage, j, pm->base, pm->npage);
 		j++;
 		pm++;
 	}
-#endif /* ConfCrap */
 }

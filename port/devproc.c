@@ -208,7 +208,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 			if(s < 0)
 				return -1;
 		}
-		else if(--s >= conf.nproc)
+		else if(--s >= PROCMAX)
 			return -1;
 
 		if((p = psincref(s)) == nil || (pid = p->pid) == 0)
@@ -289,7 +289,7 @@ _proctrace(Proc* p, Tevent etype, vlong ts)
 static void
 procinit(void)
 {
-	if(conf.nproc >= (1<<(16-QSHIFT))-1)
+	if(PROCMAX >= (1<<(16-QSHIFT))-1)
 		print("warning: too many procs for devproc\n");
 	addclock0link((void (*)(void))profclock, 113);	/* Relative prime to HZ */
 }
@@ -688,12 +688,12 @@ procread(Chan *c, void *va, long n, vlong off)
 	Waitq *wq;
 	Ureg kur;
 	uchar *rptr;
-	Confmem *cm;
+	Asm *asm;
 	Mntwalk *mw;
 	Segment *sg, *s;
 	int i, j, navail, ne, pid, rsize;
 	char flag[10], *sps, *srv, statbuf[NSEG*64];
-	uintptr offset;
+	uintptr offset, klimit;
 	uvlong u;
 
 	if(c->qid.type & QTDIR)
@@ -773,12 +773,15 @@ procread(Chan *c, void *va, long n, vlong off)
 			psdecref(p);
 			return n;
 		}
-		for(i=0; i<nelem(conf.mem); i++){
-			cm = &conf.mem[i];
-			/* klimit-1 because klimit might be zero! */
-			if(cm->kbase <= offset && offset <= cm->klimit-1){
-				if(offset+n >= cm->klimit-1)
-					n = cm->klimit - offset;
+		for(asm = asmlist; asm != nil; asm = asm->next){
+			if(asm->kbase == 0)
+				continue;
+			klimit = asm->kbase + asm->npage * PGSZ;
+
+			/* klimit-1 because klimit might be zero!; hmmm not now but... */
+			if(asm->kbase <= offset && offset <= klimit-1){
+				if(offset+n >= klimit-1)
+					n = klimit - offset;
 				memmove(va, UINT2PTR(offset), n);
 				psdecref(p);
 				return n;

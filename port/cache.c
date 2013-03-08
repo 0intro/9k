@@ -110,11 +110,7 @@ cinit(void)
 		panic("cinit: no memory");
 	mc = cache.head;
 
-	/* a better algorithm would be nice */
-//	if(conf.npage*PGSZ > 200*MB)
-//		maxcache = 10*MAXCACHE;
-//	if(conf.npage*PGSZ > 400*MB)
-//		maxcache = 50*MAXCACHE;
+	/* a good algorithm to set maxcache would be nice */
 
 	for(i = 0; i < NFILE-1; i++) {
 		mc->next = mc+1;

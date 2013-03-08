@@ -16,8 +16,7 @@ pageinit(void)
 	int color, i, j;
 	Page *p;
 	Pallocmem *pm;
-	ulong k, vkb, pkb;
-	uvlong m, np;
+	uintmem np, pkb, kkb, kmkb, mkb;
 
 	np = 0;
 	for(i=0; i<nelem(palloc.mem); i++){
@@ -48,25 +47,20 @@ pageinit(void)
 	palloc.tail->next = 0;
 
 	palloc.user = p - palloc.pages;
-	pkb = palloc.user*PGSZ/1024;
-	vkb = pkb + (conf.nswap*PGSZ)/1024;
+
+	/* user, kernel, kernel malloc area, memory */
+	pkb = palloc.user*PGSZ/KiB;
+	kkb = ROUNDUP((uintptr)end - KTZERO, PGSZ)/KiB;
+	kmkb = ROUNDUP(sys->vmend - (uintptr)end, PGSZ)/KiB;
+	mkb = sys->pmoccupied/KiB;
 
 	/* Paging numbers */
 	highwater = (palloc.user*5)/100;
-	if(highwater >= 64*MiB/PGSZ)
-		highwater = 64*MiB/PGSZ;
+	if(highwater >= 64*MB/PGSZ)
+		highwater = 64*MB/PGSZ;
 
-	m = 0;
-	for(i=0; i<nelem(conf.mem); i++){
-		if(conf.mem[i].npage)
-			m += conf.mem[i].npage*PGSZ;
-	}
-	k = ROUNDUP(end - (char*)KTZERO, PGSZ);
-	print("%lldM memory: %lldM kernel data, %ldM user, %ldM swap\n",
-		(m+k+1024*1024-1)/(1024*1024),
-		(m+k-pkb*1024+1024*1024-1)/(1024*1024),
-		pkb/1024,
-		vkb/1024);
+	print("%lldM memory: %lldK+%lldM kernel, %lldM user, %lldM lost\n",
+		mkb/KiB, kkb, kmkb/KiB, pkb/KiB, (mkb-kkb-kmkb-pkb)/KiB);
 }
 
 static void

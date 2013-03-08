@@ -1,5 +1,4 @@
-typedef struct Conf Conf;
-typedef struct Confmem Confmem;
+typedef struct Asm Asm;
 typedef struct Fxsave Fxsave;
 typedef struct ISAConf ISAConf;
 typedef struct Label Label;
@@ -94,27 +93,22 @@ struct PNOTIFY
 	void	emptiness;
 };
 
-struct Confmem
+/*
+ * Address Space Map.
+ * Low duty cycle.
+ */
+struct Asm
 {
-	uintptr	base;
-	usize	npage;
-	uintptr	kbase;
-	uintptr	klimit;
+	uintmem	addr;
+	uintmem	size;
+	int	type;
+	int	location;
+	Asm*	next;
+	uintmem base;	/* used by port; ROUNDUP(addr, PGSZ) */
+	usize	npage;	/* used by port; # of pages available starting at base */
+	uintptr	kbase;	/* used by port; kernel for base, used by devproc */
 };
-
-struct Conf
-{
-	ulong	nmach;		/* processors */
-	ulong	nproc;		/* processes */
-	Confmem	mem[4];		/* physical memory */
-	uvlong	npage;		/* total physical pages of memory */
-	usize	upages;		/* user page pool */
-	ulong	ialloc;		/* max interrupt time allocation in bytes */
-	ulong	pipeqsize;	/* size in bytes of pipe queues */
-	ulong	nimage;		/* number of page cache image headers */
-	ulong	nswap;		/* number of swap pages */
-	int	nswppo;		/* max # of pageouts per segment pass */
-};
+extern Asm* asmlist;
 
 #include "../port/portdat.h"
 
@@ -257,7 +251,8 @@ struct Sys {
 			uintptr	vmend;		/* 1st unusable va */
 
 			u64int	epoch;		/* crude time synchronisation */
-			int	nmach;
+			int	nmach;		/* how many machs */
+			int	nonline;	/* how many machs are online */
 			uint	ticks;		/* since boot (type?) */
 			uint	copymode;	/* 0 is COW, 1 is copy on ref */
 		};

@@ -74,7 +74,7 @@ lock(Lock *l)
 		lockstats.inglare++;
 		i = 0;
 		while(l->key){
-			if(conf.nmach < 2 && up && up->edf && (up->edf->flags & Admitted)){
+			if(sys->nonline < 2 && up && up->edf && (up->edf->flags & Admitted)){
 				/*
 				 * Priority inversion, yield on a uniprocessor; on a
 				 * multiprocessor, the other processor will unlock

@@ -6,8 +6,6 @@
 
 #include "init.h"
 
-Conf conf;			/* XXX - must go - gag */
-
 extern void crapoptions(void);	/* XXX - must go */
 extern void confsetenv(void);	/* XXX - must go */
 
@@ -163,6 +161,8 @@ main(u32int ax, u32int bx)
 	m->stack = PTR2UINT(sys->machstk);
 	m->vsvm = sys->vsvmpage;
 	sys->nmach = 1;
+	sys->nonline = 1;
+	sys->copymode = 0;			/* COW */
 	up = nil;
 
 	asminit();
@@ -183,8 +183,6 @@ main(u32int ax, u32int bx)
 
 	vsvminit(MACHSTKSZ);
 
-	conf.nmach = 1;				/* put off until later? */
-	sys->copymode = 0;			/* COW */
 	active.machs = 1;
 	active.exiting = 0;
 
@@ -212,7 +210,6 @@ main(u32int ax, u32int bx)
 	kbdinit();
 
 	meminit();
-	confinit();
 	archinit();
 	mallocinit();
 	trapinit();
@@ -243,7 +240,7 @@ main(u32int ax, u32int bx)
 	timersinit();
 	kbdenable();
 	fpuinit();
-	psinit(conf.nproc);
+	psinit();
 	initimage();
 	links();
 	devtabreset();
@@ -263,7 +260,7 @@ main(u32int ax, u32int bx)
 		if(sys->machptr[i] == nil)
 			continue;
 
-		conf.nmach++;			/* GAK */
+		sys->nonline++;
 		lock(&active);			/* GAK */
 		active.machs |= 1<<i;		/* GAK */
 		unlock(&active);		/* GAK */
@@ -408,79 +405,6 @@ userinit(void)
 	kunmap(k);
 
 	ready(p);
-}
-
-void
-confinit(void)
-{
-	char *p;
-	int i, userpcnt;
-	ulong kpages;
-
-	if(p = getconf("*kernelpercent"))
-		userpcnt = 100 - strtol(p, 0, 0);
-	else
-		userpcnt = 0;
-
-	conf.npage = 0;
-	for(i=0; i<nelem(conf.mem); i++)
-		conf.npage += conf.mem[i].npage;
-
-	conf.nproc = 100 + ((conf.npage*PGSZ)/MB)*5;
-	if(cpuserver)
-		conf.nproc *= 3;
-	if(conf.nproc > 2000)
-//		conf.nproc = 2000;
-conf.nproc = 1000;
-	conf.nimage = 200;
-	conf.nswap = conf.nproc*80;
-	conf.nswppo = 4096;
-
-#ifdef notdoneinasmmeminit
-	if(cpuserver) {
-		if(userpcnt < 10)
-			userpcnt = 70;
-		kpages = conf.npage - (conf.npage*userpcnt)/100;
-
-		/*
-		 * Hack for the big boys. Only good while physmem < 4GB.
-		 * Give the kernel fixed max + enough to allocate the
-		 * page pool.
-		 * This is an overestimate as conf.upages < conf.npages.
-		 * The patch of nimage is a band-aid, scanning the whole
-		 * page list in imagereclaim just takes too long.
-		 */
-		if(kpages > (64*MB + conf.npage*sizeof(Page))/PGSZ){
-			kpages = (64*MB + conf.npage*sizeof(Page))/PGSZ;
-			conf.nimage = 2000;
-			kpages += (conf.nproc*KSTACK)/PGSZ;
-		}
-	} else {
-		if(userpcnt < 10) {
-			if(conf.npage*PGSZ < 16*MB)
-				userpcnt = 40;
-			else
-				userpcnt = 60;
-		}
-		kpages = conf.npage - (conf.npage*userpcnt)/100;
-	}
-	conf.upages = conf.npage - kpages;
-	conf.ialloc = (kpages/2)*PGSZ;
-
-	/*
-	 * Guess how much is taken by the large permanent
-	 * datastructures. Mntcache and Mntrpc are not accounted for
-	 * (probably ~300KB).
-	 */
-	kpages *= PGSZ;
-	kpages -= conf.upages*sizeof(Page)
-		+ conf.nproc*sizeof(Proc)
-		+ conf.nimage*sizeof(Image)
-		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
-	print("npage %llud upage %lud kpage %lud\n",
-		conf.npage, conf.upages, kpages);
-#endif /* notdoneinasmmeminit */
 }
 
 static void

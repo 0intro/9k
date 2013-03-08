@@ -217,7 +217,7 @@ ioapicintrdd(u32int* hi, u32int* lo)
 		lock(&dflock);
 		for(;;){
 			i = df++;
-			if(df >= sys->nmach+1)
+			if(df >= MACHMAX+1)
 				df = 0;
 			if(sys->machptr[i] == nil || !sys->machptr[i]->online)
 				continue;

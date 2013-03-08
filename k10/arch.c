@@ -102,6 +102,6 @@ kprocchild(Proc* p, void (*func)(void*), void* arg)
 void
 idlehands(void)
 {
-	if(conf.nmach == 1)
+	if(sys->nonline == 1)
 		halt();
 }

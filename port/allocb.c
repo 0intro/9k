@@ -14,6 +14,8 @@ struct
 {
 	Lock;
 	ulong	bytes;
+	ulong	limit;
+
 } ialloc;
 
 static Block*
@@ -66,20 +68,26 @@ allocb(int size)
 	return b;
 }
 
+void
+ialloclimit(ulong limit)
+{
+	ialloc.limit = limit;
+}
+
 Block*
 iallocb(int size)
 {
 	Block *b;
 	static int m1, m2, mp;
 
-	if(ialloc.bytes > conf.ialloc){
+	if(ialloc.bytes > ialloc.limit){
 		if((m1++%10000)==0){
 			if(mp++ > 1000){
 				active.exiting = 1;
 				exit(0);
 			}
 			iprint("iallocb: limited %lud/%lud\n",
-				ialloc.bytes, conf.ialloc);
+				ialloc.bytes, ialloc.limit);
 		}
 		return nil;
 	}
@@ -91,7 +99,7 @@ iallocb(int size)
 				exit(0);
 			}
 			iprint("iallocb: no memory %lud/%lud\n",
-				ialloc.bytes, conf.ialloc);
+				ialloc.bytes, ialloc.limit);
 		}
 		return nil;
 	}
@@ -169,5 +177,5 @@ checkb(Block *b, char *msg)
 void
 iallocsummary(void)
 {
-	print("ialloc %lud/%lud\n", ialloc.bytes, conf.ialloc);
+	print("ialloc %lud/%lud\n", ialloc.bytes, ialloc.limit);
 }

@@ -939,7 +939,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return 0;
 
 	case Qsysstat:
-		b = smalloc(conf.nmach*(NUMSIZE*11+1) + 1);	/* +1 for NUL */
+		b = smalloc(sys->nonline*(NUMSIZE*11+1) + 1);	/* +1 for NUL */
 		bp = b;
 		for(id = 0; id < MACHMAX; id++){
 			if((mp = sys->machptr[id]) == nil || !mp->online)
@@ -983,10 +983,11 @@ consread(Chan *c, void *buf, long n, vlong off)
 		l = snprint(tmp, sizeof tmp,
 			"%llud memory\n"
 			"%d pagesize\n"
-			"%llud kernel\n",
-			(uvlong)conf.npage*PGSZ,
+			"%llud kernel\n"
+			"%lud/%lud user\n",
+			sys->pmoccupied,
 			PGSZ,
-			(uvlong)conf.npage-conf.upages,
+			ROUNDUP(sys->vmend - KTZERO, PGSZ)/PGSZ,
 			palloc.user-palloc.freecount, palloc.user);
 		b = buf;
 		i = readstr(offset, b, n, tmp);

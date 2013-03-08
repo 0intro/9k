@@ -27,6 +27,8 @@ enum
 	Qdir,
 	Qdata0,
 	Qdata1,
+
+	PIPEQSIZE = 256*KiB,
 };
 
 Dirtab pipedir[] =
@@ -40,17 +42,6 @@ Dirtab pipedir[] =
 #define PIPETYPE(x)	(((unsigned)x)&0x1f)
 #define PIPEID(x)	((((unsigned)x))>>5)
 #define PIPEQID(i, t)	((((unsigned)i)<<5)|(t))
-
-static void
-pipeinit(void)
-{
-	if(conf.pipeqsize == 0){
-		if(conf.nmach > 1)
-			conf.pipeqsize = 256*1024;
-		else
-			conf.pipeqsize = 32*1024;
-	}
-}
 
 /*
  *  create a pipe, no streams are created until an open
@@ -67,12 +58,12 @@ pipeattach(char *spec)
 		exhausted("memory");
 	p->ref = 1;
 
-	p->q[0] = qopen(conf.pipeqsize, 0, 0, 0);
+	p->q[0] = qopen(PIPEQSIZE, 0, 0, 0);
 	if(p->q[0] == 0){
 		free(p);
 		exhausted("memory");
 	}
-	p->q[1] = qopen(conf.pipeqsize, 0, 0, 0);
+	p->q[1] = qopen(PIPEQSIZE, 0, 0, 0);
 	if(p->q[1] == 0){
 		free(p->q[0]);
 		free(p);
@@ -376,7 +367,7 @@ Dev pipedevtab = {
 	"pipe",
 
 	devreset,
-	pipeinit,
+	devinit,
 	devshutdown,
 	pipeattach,
 	pipewalk,

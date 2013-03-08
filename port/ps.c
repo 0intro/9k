@@ -57,7 +57,7 @@ psincref(int i)
 	/*
 	 * Placeholder.
 	 */
-	if(i >= conf.nproc)
+	if(i >= PROCMAX)
 		return nil;
 	return &procalloc.arena[i];
 }
@@ -99,18 +99,18 @@ psalloc(void)
 }
 
 void
-psinit(int nproc)
+psinit(void)
 {
 	Proc *p;
 	int i;
 
-	procalloc.free = malloc(nproc*sizeof(Proc));
+	procalloc.free = malloc(PROCMAX*sizeof(Proc));
 	if(procalloc.free == nil)
-		panic("cannot allocate %ud procs (%udMB)\n", nproc, nproc*sizeof(Proc)/(1024*1024));
+		panic("cannot allocate %ud procs (%udMB)\n", PROCMAX, PROCMAX*sizeof(Proc)/(1024*1024));
 	procalloc.arena = procalloc.free;
 
 	p = procalloc.free;
-	for(i=0; i<nproc-1; i++,p++){
+	for(i=0; i<PROCMAX-1; i++,p++){
 		p->qnext = p+1;
 		p->index = i;
 	}

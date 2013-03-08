@@ -295,7 +295,7 @@ updatecpu(Proc *p)
 
 /*
  * On average, p has used p->cpu of a cpu recently.
- * Its fair share is conf.nmach/m->load of a cpu.  If it has been getting
+ * Its fair share is sys.nonline/m->load of a cpu.  If it has been getting
  * too much, penalize it.  If it has been getting not enough, reward it.
  * I don't think you can get much more than your fair share that
  * often, so most of the queues are for using less.  Having a priority
@@ -312,11 +312,11 @@ reprioritize(Proc *p)
 		return p->basepri;
 
 	/*
-	 *  fairshare = 1.000 * conf.nproc * 1.000/load,
+	 *  fairshare = 1.000 * PROCMAX * 1.000/load,
 	 * except the decimal point is moved three places
 	 * on both load and fairshare.
 	 */
-	fairshare = (conf.nmach*1000*1000)/load;
+	fairshare = (sys->nonline*1000*1000)/load;
 	n = p->cpu;
 	if(n == 0)
 		n = 1;
@@ -649,7 +649,7 @@ procwired(Proc *p, int bm)
 	Proc *pp;
 	int i;
 	char nwired[MACHMAX];
-	Mach *wm;
+	Mach *wm, *mp;
 
 	if(bm < 0){
 		/* pick a machine to wire to */
@@ -662,12 +662,15 @@ procwired(Proc *p, int bm)
 			psdecref(pp);
 		}
 		bm = 0;
-		for(i=0; i<MACHMAX; i++)
+		for(i=0; i<MACHMAX; i++){
+			if((mp = sys->machptr[i]) == nil || !mp->online)
+				continue;
 			if(nwired[i] < nwired[bm])
 				bm = i;
+		}
 	} else {
 		/* use the virtual machine requested */
-		bm = bm % conf.nmach;
+		bm = bm % MACHMAX;
 	}
 
 	p->wired = sys->machptr[bm];

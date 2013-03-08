@@ -737,6 +737,11 @@ struct Proc
 	PNOTIFY;
 };
 
+enum
+{
+	PROCMAX	= 100,			/* maximum number of processes */
+};
+
 struct Procalloc
 {
 	Lock;
@@ -756,7 +761,6 @@ enum
 	WRITESTR =	256,		/* ctl file write max */
 };
 
-extern	Conf	conf;
 extern	char*	conffile;
 extern	int	cpuserver;
 extern  char*	eve;
