@@ -309,29 +309,16 @@ struct Page
 	Lock;
 	uintptr	pa;			/* Physical address in memory */
 	uintptr	va;			/* Virtual address for user */
-	ulong	daddr;			/* Disc address on swap */
+	ulong	daddr;			/* Disc address in file */
 	int	ref;			/* Reference count */
 	int	modref;			/* Simulated modify/reference bits */
 	int	color;			/* Cache coloring */
 	char	cachectl[MACHMAX];	/* Cache flushing control for mmuput */
-	Image	*image;			/* Associated text or swap image */
+	Image	*image;			/* Associated image (text) */
 	Page	*next;			/* Lru free list */
 	Page	*prev;
 	Page	*hash;			/* Image hash chains */
 };
-
-struct Swapalloc
-{
-	Lock;				/* Free map lock */
-	int	free;			/* currently free swap pages */
-	uchar*	swmap;			/* Base of swap map in memory */
-	uchar*	alloc;			/* Round robin allocator */
-	uchar*	last;			/* Speed swap allocation */
-	uchar*	top;			/* Top of swap map */
-	Rendez	r;			/* Pager kproc idle sleep */
-	ulong	highwater;		/* Pager start threshold */
-	ulong	headroom;		/* Space pager frees under highwater */
-}swapalloc;
 
 struct Image
 {
@@ -369,11 +356,7 @@ enum
 	SG_RONLY	= 0040,		/* Segment is read only */
 	SG_CEXEC	= 0100,		/* Detach at exec */
 };
-
-#define PG_ONSWAP	1
-#define onswap(s)	(PTR2UINT(s) & PG_ONSWAP)
-#define pagedout(s)	(PTR2UINT(s) == 0 || onswap(s))
-#define swapaddr(s)	(PTR2UINT(s) & ~PG_ONSWAP)
+#define pagedout(s)	(s == nil)	/* only on demand, no swap */
 
 #define SEGMAXSIZE	(SEGMAPSIZE*PTEMAPMEM)
 

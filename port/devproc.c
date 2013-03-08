@@ -694,6 +694,7 @@ procread(Chan *c, void *va, long n, vlong off)
 	int i, j, navail, ne, pid, rsize;
 	char flag[10], *sps, *srv, statbuf[NSEG*64];
 	uintptr offset;
+	uvlong u;
 
 	if(c->qid.type & QTDIR)
 		return devdirread(c, va, n, 0, 0, procgen);
@@ -900,13 +901,13 @@ procread(Chan *c, void *va, long n, vlong off)
 			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
 		}
 		/* ignore stack, which is mostly non-existent */
-		l = 0;
+		u = 0;
 		for(i=1; i<NSEG; i++){
 			s = p->seg[i];
 			if(s)
-				l += s->top - s->base;
+				u += s->top - s->base;
 		}
-		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, l>>10, NUMSIZE);
+		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, u>>10, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
 		memmove(va, statbuf+offset, n);

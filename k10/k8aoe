@@ -128,7 +128,6 @@ port
 	qlock
 	rebootcmd
 	segment
-	swap
 	sysauth
 	sysfile
 	sysproc

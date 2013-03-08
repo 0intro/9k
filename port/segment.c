@@ -223,18 +223,12 @@ mfreeseg(Segment *s, uintptr start, int pages)
 			 * entry from their TLBs before the page is freed.
 			 * We construct a list of the pages to be freed, zero
 			 * the entries, then (below) call procflushseg, and call
-			 * putpage on the whole list.
-			 *
-			 * Swapped-out pages don't appear in TLBs, so it's okay
-			 * to putswap those pages before procflushseg.
+			 * putpage on the whole list. If swapping were implemented,
+			 * paged-out pages can't be in a TLB and could be disposed of here.
 			 */
-			if(pg){
-				if(onswap(pg))
-					putswap(pg);
-				else{
-					pg->next = list;
-					list = pg;
-				}
+			if(pg != nil){
+				pg->next = list;
+				list = pg;
 				s->map[i]->pages[j] = 0;
 			}
 			if(--pages == 0)

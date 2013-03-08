@@ -129,10 +129,7 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 		lkp = *pg;
 		lock(lkp);
 
-		if(lkp->image == &swapimage)
-			ref = lkp->ref + swapcount(lkp->daddr);
-		else
-			ref = lkp->ref;
+		ref = lkp->ref;
 		if(ref > 1) {
 			unlock(lkp);
 
@@ -191,33 +188,21 @@ pio(Segment *s, uintptr addr, ulong soff, Page **p)
 	ulong daddr;
 	Page *loadrec;
 
-retry:
 	loadrec = *p;
-	if(loadrec == nil) {	/* from a text/data image */
-		daddr = s->fstart+soff;
-		new = lookpage(s->image, daddr);
-		if(new != nil) {
-			*p = new;
-			return;
-		}
-
-		c = s->image->c;
-		ask = s->flen-soff;
-		if(ask > PGSZ)
-			ask = PGSZ;
+	if(!pagedout(*p) || loadrec != nil)
+		return;
+	/* demand load from a text/data image */
+	daddr = s->fstart+soff;
+	new = lookpage(s->image, daddr);
+	if(new != nil) {
+		*p = new;
+		return;
 	}
-	else {			/* from a swap image */
-		daddr = swapaddr(loadrec);
-		new = lookpage(&swapimage, daddr);
-		if(new != nil) {
-			putswap(loadrec);
-			*p = new;
-			return;
-		}
 
-		c = swapimage.c;
+	c = s->image->c;
+	ask = s->flen-soff;
+	if(ask > PGSZ)
 		ask = PGSZ;
-	}
 	qunlock(&s->lk);
 
 	new = newpage(0, 0, addr);
@@ -242,44 +227,18 @@ retry:
 	kunmap(k);
 
 	qlock(&s->lk);
-	if(loadrec == nil) {	/* This is demand load */
-		/*
-		 *  race, another proc may have gotten here first while
-		 *  s->lk was unlocked
-		 */
-		if(*p == nil) {
-			new->daddr = daddr;
-			cachepage(new, s->image);
-			*p = new;
-		}
-		else
-			putpage(new);
-	}
-	else {			/* This is paged out */
-		/*
-		 *  race, another proc may have gotten here first
-		 *  (and the pager may have run on that page) while
-		 *  s->lk was unlocked
-		 */
-		if(*p != loadrec){
-			if(!pagedout(*p)){
-				/* another process did it for me */
-				putpage(new);
-				goto done;
-			} else {
-				/* another process and the pager got in */
-				putpage(new);
-				goto retry;
-			}
-		}
-
+	/*
+	 *  race, another proc may have read the page in while
+	 *  s->lk was unlocked
+	 */
+	if(*p == nil) {
 		new->daddr = daddr;
-		cachepage(new, &swapimage);
+		cachepage(new, s->image);
 		*p = new;
-		putswap(loadrec);
 	}
+	else
+		putpage(new);
 
-done:
 	if(s->flushme)
 		memset((*p)->cachectl, PG_TXTFLUSH, sizeof((*p)->cachectl));
 }

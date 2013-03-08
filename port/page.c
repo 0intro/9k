@@ -8,6 +8,8 @@
 
 struct	Palloc palloc;
 
+static	uint	highwater;	/* TO DO */
+
 void
 pageinit(void)
 {
@@ -50,8 +52,9 @@ pageinit(void)
 	vkb = pkb + (conf.nswap*PGSZ)/1024;
 
 	/* Paging numbers */
-	swapalloc.highwater = (palloc.user*5)/100;
-	swapalloc.headroom = swapalloc.highwater + (swapalloc.highwater/4);
+	highwater = (palloc.user*5)/100;
+	if(highwater >= 64*MiB/PGSZ)
+		highwater = 64*MiB/PGSZ;
 
 	m = 0;
 	for(i=0; i<nelem(conf.mem); i++){
@@ -131,7 +134,7 @@ if(up == nil)
    print("newpage called from %#p\n", getcallerpc(&clear));
 	lock(&palloc);
 	color = getpgcolor(va);
-	hw = swapalloc.highwater;
+	hw = highwater;
 	for(;;) {
 		if(palloc.freecount > hw)
 			break;
@@ -150,7 +153,9 @@ if(up == nil)
 		while(waserror())	/* Ignore interrupts */
 			;
 
-		kickpager();
+		print("out of physical memory\n");
+		pagereclaim(highwater/2);
+
 		tsleep(&palloc.r, ispages, 0, 1000);
 
 		poperror();
@@ -208,17 +213,12 @@ if(up == nil)
 int
 ispages(void*)
 {
-	return palloc.freecount >= swapalloc.highwater;
+	return palloc.freecount >= highwater;
 }
 
 void
 putpage(Page *p)
 {
-	if(onswap(p)) {
-		putswap(p);
-		return;
-	}
-
 	lock(&palloc);
 	lock(p);
 
@@ -231,7 +231,7 @@ putpage(Page *p)
 		return;
 	}
 
-	if(p->image && p->image != &swapimage)
+	if(p->image != nil)
 		pagechaintail(p);
 	else
 		pagechainhead(p);
@@ -250,7 +250,8 @@ auxpage(void)
 
 	lock(&palloc);
 	p = palloc.head;
-	if(palloc.freecount < swapalloc.highwater) {
+	if(palloc.freecount <= highwater) {
+		/* memory's tight, don't use it for file cache */
 		unlock(&palloc);
 		return 0;
 	}
@@ -307,8 +308,8 @@ retry:
 		goto retry;
 	}
 
-	/* No freelist cache when memory is very low */
-	if(palloc.freecount < swapalloc.highwater) {
+	/* No freelist cache when memory is relatively low */
+	if(palloc.freecount < highwater) {
 		unlock(&palloc);
 		uncachepage(p);
 		return 1;
@@ -499,23 +500,20 @@ Pte*
 ptecpy(Pte *old)
 {
 	Pte *new;
-	Page **src, **dst;
+	Page **src, **dst, *pg;
 
 	new = ptealloc();
 	dst = &new->pages[old->first-old->pages];
 	new->first = dst;
-	for(src = old->first; src <= old->last; src++, dst++)
-		if(*src) {
-			if(onswap(*src))
-				dupswap(*src);
-			else {
-				lock(*src);
-				(*src)->ref++;
-				unlock(*src);
-			}
+	for(src = old->first; src <= old->last; src++, dst++){
+		if((pg = *src) != nil){
+			lock(pg);
+			pg->ref++;
+			unlock(pg);
 			new->last = dst;
-			*dst = *src;
+			*dst = pg;
 		}
+	}
 
 	return new;
 }

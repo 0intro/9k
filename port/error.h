@@ -37,7 +37,6 @@ extern char Econrefused[];	/* connection refused */
 extern char Econinuse[];	/* connection in use */
 extern char Eintr[];		/* interrupted */
 extern char Enomem[];		/* kernel allocate failed */
-extern char Enoswap[];		/* swap space full */
 extern char Esoverlap[];	/* segments overlap */
 extern char Eshort[];		/* i/o count too small */
 extern char Egreg[];		/* ken has left the building */

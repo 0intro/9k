@@ -248,7 +248,6 @@ main(u32int ax, u32int bx)
 	links();
 	devtabreset();
 	pageinit();
-	swapinit();
 	userinit();
 	if(!dbgflg['S'])
 		sipi();

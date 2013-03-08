@@ -528,7 +528,6 @@ echo(char *buf, int n)
 			ixsummary();
 			mallocsummary();
 //			memorysummary();
-			pagersummary();
 			return;
 		case 'd':
 			if(consdebug == nil)
@@ -984,14 +983,11 @@ consread(Chan *c, void *buf, long n, vlong off)
 		l = snprint(tmp, sizeof tmp,
 			"%llud memory\n"
 			"%d pagesize\n"
-			"%llud kernel\n"
-			"%lud/%lud user\n"
-			"%lud/%lud swap\n",
+			"%llud kernel\n",
 			(uvlong)conf.npage*PGSZ,
 			PGSZ,
 			(uvlong)conf.npage-conf.upages,
-			palloc.user-palloc.freecount, palloc.user,
-			conf.nswap-swapalloc.free, conf.nswap);
+			palloc.user-palloc.freecount, palloc.user);
 		b = buf;
 		i = readstr(offset, b, n, tmp);
 		b += i;
@@ -1037,8 +1033,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	long l, bp;
 	char *a;
 	Mach *mp;
-	int i, fd;
-	Chan *swc;
+	int i;
 	ulong offset;
 	Cmdbuf *cb;
 	Cmdtab *ct;
@@ -1147,22 +1142,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qswap:
-		if(n >= sizeof buf)
-			error(Egreg);
-		memmove(buf, va, n);	/* so we can NUL-terminate */
-		buf[n] = 0;
-		/* start a pager if not already started */
-		if(strncmp(buf, "start", 5) == 0){
-			kickpager();
-			break;
-		}
-		if(!iseve())
-			error(Eperm);
-		if(buf[0]<'0' || '9'<buf[0])
-			error(Ebadarg);
-		fd = strtoul(buf, 0, 0);
-		swc = fdtochan(fd, -1, 1, 1);
-		setswapchan(swc);
+		/* no more */
 		break;
 
 	case Qsysname:
