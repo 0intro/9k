@@ -762,12 +762,13 @@ enum
 };
 
 extern	char*	conffile;
+extern	char	configfile[];
 extern	int	cpuserver;
-extern  char*	eve;
+extern	char*	eve;
 extern	char	hostdomain[];
 extern	uchar	initcode[];
 extern	int	kbdbuttons;
-extern  Ref	noteidalloc;
+extern	Ref	noteidalloc;
 extern	int	nphysseg;
 extern	int	nsyscall;
 extern	Palloc	palloc;
@@ -775,7 +776,7 @@ extern	Physseg	physseg[];
 extern	Procalloc	procalloc;
 extern	uint	qiomaxatomic;
 extern	char*	statename[];
-extern  Image	swapimage;
+extern	Image	swapimage;
 extern	char*	sysname;
 extern struct {
 	char*	n;

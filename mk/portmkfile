@@ -97,6 +97,11 @@ $CONF.$O:	$CONF.c
 
 $CONF.c:	../mk/parse $CONF
 	awk -f ../mk/parse -- -mkdevc $CONF > $CONF.c
+	{echo 'char configfile[]={'
+	 xd -1x $CONF |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo 0,
+	 echo '};'} >> $CONF.c
 
 ./root/$O.%:	./root/%.c
 	@{cd ./root; mk $O.$stem}
