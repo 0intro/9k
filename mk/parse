@@ -291,6 +291,9 @@ function mkdevc(		a, d, i, m, n, s, t, u, name, cname){
 	}
 	s = s "Dev* devtab[] = {\n" t "\tnil,\n};\n\n";
 
+	if(!("acpi" in d))
+		s = s "int\nacpiinit(void)\n{\n\treturn -1;\n}\n\n";
+
 	mkrootrules(name, cname, m);
 	t = "";
 	for(i = 1; i < section["rootdir"]; i++){

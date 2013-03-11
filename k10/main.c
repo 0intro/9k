@@ -233,6 +233,7 @@ main(u32int ax, u32int bx)
 	 */
 	i8259init(32);
 
+	acpiinit();
 	mpsinit();
 	apiconline();
 	apictprput(0);

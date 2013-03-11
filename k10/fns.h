@@ -1,6 +1,7 @@
 #include "../port/portfns.h"
 
 void	aamloop(int);
+int	acpiinit(void);
 Dirtab*	addarchfile(char*, int, long(*)(Chan*,void*,long,vlong), long(*)(Chan*,void*,long,vlong));
 void	archfmtinstall(void);
 void	archidle(void);
@@ -12,12 +13,13 @@ int	asmfree(uvlong, uvlong, int);
 uvlong	asmalloc(uvlong, uvlong, int, int);
 void	asminit(void);
 void	asmmapinit(u64int, u64int, int);
-void 	asmmodinit(u32int, u32int, char*);
+void	asmmodinit(u32int, u32int, char*);
 void	cgaconsputs(char*, int);
 void	cgainit(void);
 void	cgapost(int);
 #define	clearmmucache()				/* x86 doesn't have one */
 void	(*coherence)(void);
+int	corecolor(int);
 u32int	cpuid(u32int, u32int, u32int[4]);
 int	dbgprint(char*, ...);
 #define decref(r)	adec(&(r)->ref)
@@ -70,6 +72,7 @@ void	machinit(void);
 void	mach0init(void);
 void	mapraminit(uvlong, uvlong);
 void	mapupainit(uvlong, ulong);
+int	memcolor(uintmem, uintmem*);
 void	meminit(void);
 void	mfence(void);
 void	mmuflushtlb(u64int);
@@ -101,8 +104,8 @@ void	pciclrmwi(Pcidev*);
 int	pcigetpms(Pcidev*);
 void	pcihinv(Pcidev*);
 uchar	pciipin(Pcidev*, uchar);
-Pcidev* pcimatch(Pcidev*, int, int);
-Pcidev* pcimatchtbdf(int);
+Pcidev*	pcimatch(Pcidev*, int, int);
+Pcidev*	pcimatchtbdf(int);
 void	pcireset(void);
 void	pcisetbme(Pcidev*);
 void	pcisetioe(Pcidev*);
