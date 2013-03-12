@@ -10,35 +10,90 @@ struct	Palloc palloc;
 
 static	uint	highwater;	/* TO DO */
 
+/*
+ * Split palloc.mem[i] if it's not all of the same color and we can.
+ * Return the new end of the known banks.
+ */
+static int
+splitbank(int i, int e)
+{
+	Pallocmem *pm;
+	uintmem psz;
+	uintmem npg;
+
+	pm = &palloc.mem[i];
+	pm->color  = memcolor(pm->base, &psz);
+	if(pm->color < 0){
+		pm->color = 0;
+		if(i > 0)
+			pm->color = pm[-1].color;
+		return 0;
+	}
+	npg = psz/PGSZ;
+
+	if(e == nelem(palloc.mem) || npg <= 1 || npg >= pm->npage)
+		return 0;
+	if(i+1 < e)
+		memmove(pm+2, pm+1, (e-i-1)*sizeof(Pallocmem));
+	pm[1].base = pm->base + npg*PGSZ;
+	pm[1].npage = pm->npage - npg;
+	DBG("palloc split[%d] col %d %#P %#ulld -> %ulld\n",
+		i, pm->color, pm->base, pm->npage, npg);
+	pm->npage = npg;
+	return 1;
+}
+
 void
 pageinit(void)
 {
-	int color, i, j;
+	int e, i, j;
 	Page *p;
 	Pallocmem *pm;
 	uintmem np, pkb, kkb, kmkb, mkb;
 
+	for(e = 0; e < nelem(palloc.mem); e++){
+		if(palloc.mem[e].npage == 0)
+			break;
+	}
+
+	/*
+	 * Compute # of pages and split banks if not of the same color
+	 * and there's room for doing so.
+	 */
 	np = 0;
-	for(i=0; i<nelem(palloc.mem); i++){
+	for(i=0; i<e; i++){
 		pm = &palloc.mem[i];
+		if(splitbank(i, e))
+			e++;
+
+		print("palloc[%d] col %d %#P %llud\n",
+			i, pm->color, pm->base, pm->npage);
+
+/* BUG; can't handle it all right now */
+if(pm->base > 600*MiB){
+	pm->npage = 0;
+	continue;
+}
+if(pm->base+pm->npage*PGSZ > 600*MiB)
+	pm->npage = pm->npage = (600*MiB-pm->base)/PGSZ;
+
 		np += pm->npage;
 	}
+
 	palloc.pages = malloc(np*sizeof(Page));
 	if(palloc.pages == nil)
 		panic("pageinit");
 
-	color = 0;
 	palloc.head = palloc.pages;
 	p = palloc.head;
-	for(i=0; i<nelem(palloc.mem); i++){
+	for(i=0; i<e; i++){
 		pm = &palloc.mem[i];
 		for(j=0; j<pm->npage; j++){
 			p->prev = p-1;
 			p->next = p+1;
 			p->pa = pm->base+j*PGSZ;
-			p->color = color;
+			p->color = pm->color;
 			palloc.freecount++;
-			color = (color+1)%NCOLOR;
 			p++;
 		}
 	}

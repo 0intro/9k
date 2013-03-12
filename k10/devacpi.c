@@ -865,10 +865,12 @@ memcolor(uintmem addr, uintmem *sizep)
 
 	for(sl = srat; sl != nil; sl = sl->next)
 		if(sl->type == SRmem)
-		if(sl->mem.addr <= addr && sl->mem.addr + sl->mem.len > addr){
+		if(sl->mem.addr <= addr && addr-sl->mem.addr < sl->mem.len){
 			if(sizep != nil)
 				*sizep = sl->mem.len - (addr - sl->mem.addr);
-			return sl->mem.dom;
+			if(sl->mem.dom >= NCOLOR)
+				print("memcolor: NCOLOR too small");
+			return sl->mem.dom%NCOLOR;
 		}
 	return -1;
 }
@@ -897,7 +899,9 @@ corecolor(int machno)
 		if(sl->type == SRlapic && sl->lapic.apic == m->apicno){
 			if(machno >= 0 && machno < nelem(colors))
 				colors[machno] = 1 + sl->lapic.dom;
-			return sl->lapic.dom;
+			if(sl->lapic.dom >= NCOLOR)
+				print("memcolor: NCOLOR too small");
+			return sl->lapic.dom%NCOLOR;
 		}
 	return -1;
 }

@@ -112,7 +112,7 @@ squidboy(int apicno)
 	wrmsr(0x10, sys->epoch);
 	m->rdtsc = rdtsc();
 
-	print("mach %d is go %#p %#p %3p\n", m->machno, m, m->pml4->va, &apicno);
+	DBG("mach %d is go %#p %#p %#p\n", m->machno, m, m->pml4->va, &apicno);
 	switch(m->mode){
 	default:
 //		vsvminit(MACHSTKSZ);
@@ -133,7 +133,7 @@ squidboy(int apicno)
 			;
 		apictprput(0);
 
-		DBG("mach%d: online\n", m->machno);
+		DBG("mach%d: online color %d\n", m->machno, m->color);
 		schedinit();
 		break;
 	}
@@ -266,6 +266,9 @@ main(u32int ax, u32int bx)
 		active.machs |= 1<<i;		/* GAK */
 		unlock(&active);		/* GAK */
 
+		sys->machptr[i]->color = corecolor(i);
+		if(sys->machptr[i]->color < 0)
+			sys->machptr[i]->color = 0;
 		sys->machptr[i]->online = 1;
 	}
 	schedinit();

@@ -79,7 +79,7 @@ struct PFPU {
 /*
  *  MMU stuff in Proc
  */
-#define NCOLOR 1
+#define NCOLOR 8
 struct PMMU
 {
 	Page*	mmuptp[4];		/* page table pages for each level */
@@ -105,7 +105,7 @@ struct Asm
 	int	location;
 	Asm*	next;
 	uintmem base;	/* used by port; ROUNDUP(addr, PGSZ) */
-	usize	npage;	/* used by port; # of pages available starting at base */
+	uintmem	npage;	/* used by port; # of pages available starting at base */
 	uintptr	kbase;	/* used by port; kernel for base, used by devproc */
 };
 extern Asm* asmlist;
@@ -145,7 +145,7 @@ struct MMMU
 	PTE*	pmap;			/* unused as of yet */
 
 	uint	pgszlg2[NPGSZ];		/* per Mach or per Sys? */
-	uint	pgszmask[NPGSZ];
+	uintmem	pgszmask[NPGSZ];
 	uint	pgsz[NPGSZ];
 	int	npgsz;
 
@@ -187,6 +187,8 @@ struct Mach
 
 	Proc*	readied;		/* for runproc */
 	ulong	schedticks;		/* next forced context switch */
+
+	int	color;
 
 	int	tlbfault;
 	int	tlbpurge;

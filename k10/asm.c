@@ -25,8 +25,16 @@ static Asm asmarray[64] = {
 static int asmindex = 1;
 Asm* asmlist = &asmarray[0];
 static Asm* asmfreelist;
+static char* asmtypes[] = {
+	[AsmNONE]		"none",
+	[AsmMEMORY]		"mem",
+	[AsmRESERVED]		"res",
+	[AsmACPIRECLAIM]	"acpirecl",
+	[AsmACPINVS]		"acpinvs",
+	[AsmDEV]		"dev",
+};
 
-/*static*/ void
+void
 asmdump(void)
 {
 	Asm* asm;
@@ -213,6 +221,8 @@ asminit(void)
 void
 asmmapinit(uintmem addr, uintmem size, int type)
 {
+	DBG("asmmapinit %#P %#P %s\n", addr, size, asmtypes[type]);
+
 	switch(type){
 	default:
 		asminsert(addr, size, type);
@@ -292,23 +302,23 @@ asmmeminit(void)
 	 * - in fact, a rewritten pdmap could do the job, no?
 	 * have to assume up to vmend is contiguous.
 	 * can't mmuphysaddr(sys->vmunmapped) because...
+	 *
+	 * Assume already 2MiB aligned; currently this is done in mmuinit.
 	 */
+	assert(m->pgszlg2[1] == 21);
 	assert(!((sys->vmunmapped|sys->vmend) & m->pgszmask[1]));
 
 	if((pa = mmuphysaddr(sys->vmunused)) == ~0)
 		panic("asmmeminit 1");
 	pa += sys->vmunmapped - sys->vmunused;
-	mem = asmalloc(pa, sys->vmend - sys->vmunmapped, 1, 0);
+	mem = asmalloc(pa, sys->vmend - sys->vmunmapped, AsmMEMORY, 0);
 	if(mem != pa)
 		panic("asmmeminit 2");
-	DBG("pa %#llux mem %#llux\n", pa, mem);
+	DBG("asmmeminit: mem %#P\n", mem);
 
-	/*
-	 * Assume already 2MiB aligned; currently this is done in mmuinit.
-	 */
 	while(sys->vmunmapped < sys->vmend){
 		l = mmuwalk(sys->vmunmapped, 1, &pte, asmwalkalloc);
-		DBG("%#p l %d\n", sys->vmunmapped, l); USED(l);
+		DBG("asmmeminit: %#p l %d\n", sys->vmunmapped, l); USED(l);
 		*pte = pa|PtePS|PteRW|PteP;
 		sys->vmunmapped += 2*MiB;
 		pa += 2*MiB;
@@ -318,9 +328,9 @@ asmmeminit(void)
 		if(asm->type != AsmMEMORY)
 			continue;
 		va = KSEG2+asm->addr;
-		print(" %#P %#P %d (%P) va %#p\n",
+		DBG(" %#P %#P %s (%P) va %#p\n",
 			asm->addr, asm->addr+asm->size,
-			asm->type, asm->size, va);
+			asmtypes[asm->type], asm->size, va);
 
 		lo = asm->addr;
 		hi = asm->addr+asm->size;
@@ -359,23 +369,23 @@ asmmeminit(void)
 		asm->kbase = PTR2UINT(KADDR(asm->base));
 		asm->npage = (ROUNDDN(hi, PGSZ) - asm->base)/PGSZ;
 	}
-	print("%d %d %d\n", npg[0], npg[1], npg[2]);
 
 	i = (sys->vmend - sys->vmstart)/PGSZ;		/* close enough */
 	ialloclimit((i/2)*PGSZ);
 	pm = palloc.mem;
 	j = 0;
 	for(asm = asmlist; asm != nil; asm = asm->next){
-		n = asm->npage;
+		if((n = asm->npage) == 0)
+			continue;
 		if(pm >= palloc.mem+nelem(palloc.mem)){
-			print("asmmeminit: losing %lud pages\n", asm->npage-n);
+			print("asmmeminit: losing %#P pages\n", asm->npage-n);
 			continue;
 		}
 		pm->base = asm->base;
 		pm->npage = asm->npage;
 
-print("asm: base %#p npage %#ld; pm%d: base %#p npage %#ld\n",
-	asm->base, asm->npage, j, pm->base, pm->npage);
+		DBG("asmmeminit: base %#P npage %llud pm%d: base %#P npage %llud\n",
+			asm->base, asm->npage, j, pm->base, pm->npage);
 		j++;
 		pm++;
 	}

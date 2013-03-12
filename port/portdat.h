@@ -466,14 +466,15 @@ enum
 
 struct Pallocmem
 {
-	uintptr	base;
-	ulong	npage;
+	uintmem	base;
+	uintmem	npage;
+	int	color;
 };
 
 struct Palloc
 {
 	Lock;
-	Pallocmem mem[8];
+	Pallocmem mem[32];
 	Page	*head;			/* most recently used */
 	Page	*tail;			/* least recently used */
 	ulong	freecount;		/* how many pages on free list now */
