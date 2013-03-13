@@ -1620,7 +1620,7 @@ txt2data(Proc *p, Segment *s)
 	int i;
 	Segment *ps;
 
-	ps = newseg(SG_DATA, s->base, s->size);
+	ps = newseg(SG_DATA, s->base, s->top);
 	ps->image = s->image;
 	incref(ps->image);
 	ps->fstart = s->fstart;
@@ -1648,7 +1648,7 @@ data2txt(Segment *s)
 {
 	Segment *ps;
 
-	ps = newseg(SG_TEXT, s->base, s->size);
+	ps = newseg(SG_TEXT, s->base, s->top);
 	ps->image = s->image;
 	incref(ps->image);
 	ps->fstart = s->fstart;

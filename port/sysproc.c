@@ -368,7 +368,7 @@ sysexec(Ar0* ar0, va_list list)
 		qunlock(&up->seglock);
 		nexterror();
 	}
-	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, USTKSIZE/PGSZ);
+	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, TSTKTOP);
 
 	/*
 	 * Stack is a pointer into the temporary stack
@@ -519,7 +519,7 @@ sysexec(Ar0* ar0, va_list list)
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
 
-	img = attachimage(SG_TEXT|SG_RONLY, chan, UTZERO, (textmin-UTZERO)>>PGSHFT);
+	img = attachimage(SG_TEXT|SG_RONLY, chan, UTZERO, textmin);
 	s = img->s;
 	up->seg[TSEG] = s;
 	s->flushme = 1;
@@ -528,7 +528,7 @@ sysexec(Ar0* ar0, va_list list)
 	unlock(img);
 
 	/* Data. Shared. */
-	s = newseg(SG_DATA, textlim, (datalim-textlim)>>PGSHFT);
+	s = newseg(SG_DATA, textlim, datalim);
 	up->seg[DSEG] = s;
 
 	/* Attached by hand */
@@ -538,7 +538,7 @@ sysexec(Ar0* ar0, va_list list)
 	s->flen = datasz;
 
 	/* BSS. Zero fill on demand */
-	up->seg[BSEG] = newseg(SG_BSS, datalim, (bsslim-datalim)>>PGSHFT);
+	up->seg[BSEG] = newseg(SG_BSS, datalim, bsslim);
 
 	/*
 	 * Move the stack

@@ -1449,7 +1449,7 @@ killbig(char *why)
 		l = 0;
 		for(i=1; i<NSEG; i++) {
 			s = p->seg[i];
-			if(s != 0)
+			if(s != nil)
 				l += s->top - s->base;
 		}
 		if(l > max && ((p->procmode&0222) || strcmp(eve, p->user)!=0)) {
@@ -1478,8 +1478,8 @@ killbig(char *why)
 	kp->procctl = Proc_exitbig;
 	for(i = 0; i < NSEG; i++) {
 		s = kp->seg[i];
-		if(s != 0 && canqlock(&s->lk)) {
-			mfreeseg(s, s->base, (s->top - s->base)/PGSZ);
+		if(s != nil && canqlock(&s->lk)) {
+			mfreeseg(s, s->base, s->top);
 			qunlock(&s->lk);
 		}
 	}

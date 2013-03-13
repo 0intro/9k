@@ -6,11 +6,16 @@
 #include	"../port/error.h"
 
 Segment *
-newseg(int type, uintptr base, usize size)
+newseg(int type, uintptr base, uintptr top)
 {
 	Segment *s;
 	int mapsize;
+	usize size;
 
+	if((base|top) & (PGSZ-1))
+		panic("newseg");
+
+	size = (top-base)/PGSZ;
 	if(size > (SEGMAPSIZE*PTEPERTAB))
 		error(Enovmem);
 
@@ -18,7 +23,7 @@ newseg(int type, uintptr base, usize size)
 	s->ref = 1;
 	s->type = type;
 	s->base = base;
-	s->top = base+(size*PGSZ);
+	s->top = top;
 	s->size = size;
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
@@ -123,13 +128,13 @@ dupseg(Segment **seg, int segno, int share)
 		goto sameseg;
 
 	case SG_STACK:
-		n = newseg(s->type, s->base, s->size);
+		n = newseg(s->type, s->base, s->top);
 		break;
 
 	case SG_BSS:		/* Just copy on write */
 		if(share)
 			goto sameseg;
-		n = newseg(s->type, s->base, s->size);
+		n = newseg(s->type, s->base, s->top);
 		break;
 
 	case SG_DATA:		/* Copy on write plus demand load info */
@@ -141,7 +146,7 @@ dupseg(Segment **seg, int segno, int share)
 
 		if(share)
 			goto sameseg;
-		n = newseg(s->type, s->base, s->size);
+		n = newseg(s->type, s->base, s->top);
 
 		incref(s->image);
 		n->image = s->image;
@@ -195,13 +200,15 @@ segpage(Segment *s, Page *p)
  *  called with s->lk locked
  */
 void
-mfreeseg(Segment *s, uintptr start, int pages)
+mfreeseg(Segment *s, uintptr start, uintptr top)
 {
 	int i, j, size;
+	usize pages;
 	uintptr soff;
 	Page *pg;
 	Page *list;
 
+	pages = (top-start)>>PGSHFT;
 	soff = start-s->base;
 	j = (soff&(PTEMAPMEM-1))/PGSZ;
 

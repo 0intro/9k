@@ -94,7 +94,7 @@ ibrk(uintptr addr, int seg)
 			qunlock(&s->lk);
 			error(Einuse);
 		}
-		mfreeseg(s, newtop, (s->top-newtop)/PGSZ);
+		mfreeseg(s, newtop, s->top);
 		s->top = newtop;
 		s->size = newsize;
 		qunlock(&s->lk);
@@ -254,7 +254,7 @@ found:
 	attr &= ~SG_TYPE;		/* Turn off what is not allowed */
 	attr |= ps->attr;		/* Copy in defaults */
 
-	s = newseg(attr, va, len/PGSZ);
+	s = newseg(attr, va, va+len);
 	s->pseg = ps;
 	p->seg[sno] = s;
 
@@ -358,7 +358,7 @@ syssegfree(Ar0* ar0, va_list list)
 	}
 	from = ROUNDUP(from, PGSZ);
 
-	mfreeseg(s, from, (to - from) / PGSZ);
+	mfreeseg(s, from, to);
 	qunlock(&s->lk);
 	mmuflush();
 

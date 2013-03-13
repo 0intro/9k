@@ -101,7 +101,7 @@ imagechanreclaim(void)
 }
 
 Image*
-attachimage(int type, Chan *c, uintptr base, usize len)
+attachimage(int type, Chan *c, uintptr base, uintptr top)
 {
 	Image *i, **l;
 
@@ -162,7 +162,7 @@ found:
 			unlock(i);
 			pexit(Enovmem, 1);
 		}
-		i->s = newseg(type, base, len);
+		i->s = newseg(type, base, top);
 		i->s->image = i;
 		i->ref++;
 		poperror();

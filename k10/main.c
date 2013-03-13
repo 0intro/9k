@@ -387,7 +387,7 @@ userinit(void)
 	 * try to sleep if there are no pages available, but that
 	 * shouldn't be the case here.
 	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/PGSZ);
+	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKTOP);
 	p->seg[SSEG] = s;
 	pg = newpage(1, s, USTKTOP-PGSZ, 0);
 	segpage(s, pg);
@@ -398,7 +398,7 @@ userinit(void)
 	/*
 	 * Text
 	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
+	s = newseg(SG_TEXT, UTZERO, UTZERO+PGSZ);
 	s->flushme++;
 	p->seg[TSEG] = s;
 	pg = newpage(1, s, UTZERO, 0);
