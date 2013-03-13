@@ -162,6 +162,9 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 				new->va = addr;
 				new->pa = s->pseg->pa+(addr-s->base);
 				new->ref = 1;
+				new->lg2size = s->pseg->lg2pgsize;
+				if(new->lg2size == 0)
+					new->lg2size = PGSHFT;	/* TO DO */
 				*pg = new;
 			}
 		}

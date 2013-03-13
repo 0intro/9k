@@ -94,6 +94,7 @@ if(pm->limit > 600*MiB)
 			p->prev = p-1;
 			p->next = p+1;
 			p->pa = pm->base+j*PGSZ;
+			p->lg2size = PGSHFT;
 			p->color = pm->color;
 			palloc.freecount++;
 			p++;
@@ -258,7 +259,7 @@ if(up == nil)
 
 	if(clear) {
 		k = kmap(p);
-		memset((void*)VA(k), 0, PGSZ);
+		memset((void*)VA(k), 0, 1<<p->lg2size);
 		kunmap(k);
 	}
 
@@ -347,6 +348,12 @@ retry:
 		return 1;
 	}
 
+	/* don't dup large pages TO DO? */
+	if(p->lg2size != PGSHFT){
+		uncachepage(p);
+		return 1;
+	}
+
 
 	/* don't dup pages with no image */
 	if(p->ref == 0 || p->image == nil || p->image->notext)
@@ -419,9 +426,11 @@ copypage(Page *f, Page *t)
 {
 	KMap *ks, *kd;
 
+	if(f->lg2size != t->lg2size)
+		panic("copypage");
 	ks = kmap(f);
 	kd = kmap(t);
-	memmove((void*)VA(kd), (void*)VA(ks), PGSZ);
+	memmove((void*)VA(kd), (void*)VA(ks), 1<<t->lg2size);
 	kunmap(ks);
 	kunmap(kd);
 }

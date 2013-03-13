@@ -311,8 +311,9 @@ struct Page
 	uintptr	va;			/* Virtual address for user */
 	ulong	daddr;			/* Disc address in file */
 	int	ref;			/* Reference count */
-	int	modref;			/* Simulated modify/reference bits */
-	int	color;			/* Cache coloring */
+	uchar	modref;			/* Simulated modify/reference bits */
+	uchar	color;			/* Cache coloring */
+	uchar	lg2size;		/* log2(pagesize) */
 	char	cachectl[MACHMAX];	/* Cache flushing control for mmuput */
 	Image	*image;			/* Associated image (text) */
 	Page	*next;			/* Lru free list */
