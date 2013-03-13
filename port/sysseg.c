@@ -59,8 +59,8 @@ uintptr
 ibrk(uintptr addr, int seg)
 {
 	Segment *s, *ns;
-	uintptr newtop;
-	long newsize;
+	uintptr newtop, pgsize;
+	usize newsize;
 	int i, mapsize;
 	Pte **map;
 
@@ -82,8 +82,9 @@ ibrk(uintptr addr, int seg)
 		addr = s->base;
 	}
 
-	newtop = ROUNDUP(addr, PGSZ);
-	newsize = (newtop-s->base)/PGSZ;
+	pgsize = 1<<s->lg2pgsize;
+	newtop = ROUNDUP(addr, pgsize);
+	newsize = (newtop-s->base)/pgsize;
 	if(newtop < s->top) {
 		/*
 		 * do not shrink a segment shared with other procs, as the
@@ -112,11 +113,11 @@ ibrk(uintptr addr, int seg)
 		}
 	}
 
-	if(newsize > (SEGMAPSIZE*PTEPERTAB)) {
+	mapsize = HOWMANY(newsize, PTEPERTAB);
+	if(mapsize > SEGMAPSIZE) {
 		qunlock(&s->lk);
 		error(Enovmem);
 	}
-	mapsize = HOWMANY(newsize, PTEPERTAB);
 	if(mapsize > s->mapsize){
 		map = smalloc(mapsize*sizeof(Pte*));
 		memmove(map, s->map, s->mapsize*sizeof(Pte*));
@@ -382,7 +383,7 @@ void
 syssegflush(Ar0* ar0, va_list list)
 {
 	Segment *s;
-	uintptr addr;
+	uintptr addr, pgsize;
 	Pte *pte;
 	usize chunk, l, len, pe, ps;
 
@@ -400,18 +401,19 @@ syssegflush(Ar0* ar0, va_list list)
 			error(Ebadarg);
 
 		s->flushme = 1;
+		pgsize = 1<<s->lg2pgsize;
 	more:
 		l = len;
 		if(addr+l > s->top)
 			l = s->top - addr;
 
 		ps = addr-s->base;
-		pte = s->map[ps/PTEMAPMEM];
-		ps &= PTEMAPMEM-1;
-		pe = PTEMAPMEM;
+		pte = s->map[ps/s->ptemapmem];
+		ps &= s->ptemapmem-1;
+		pe = s->ptemapmem;
 		if(pe-ps > l){
 			pe = ps + l;
-			pe = (pe+PGSZ-1)&~(PGSZ-1);
+			pe = (pe+pgsize-1)&~(pgsize-1);
 		}
 		if(pe == ps) {
 			qunlock(&s->lk);
@@ -419,7 +421,7 @@ syssegflush(Ar0* ar0, va_list list)
 		}
 
 		if(pte)
-			pteflush(pte, ps/PGSZ, pe/PGSZ);
+			pteflush(pte, ps/pgsize, pe/pgsize);
 
 		chunk = pe-ps;
 		len -= chunk;

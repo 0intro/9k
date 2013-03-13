@@ -368,6 +368,7 @@ struct Physseg
 	usize	size;			/* Maximum segment size in pages */
 	Page	*(*pgalloc)(Segment*, uintptr);	/* Allocation if we need it */
 	void	(*pgfree)(Page*);
+	uchar	lg2pgsize;		/* log2(size of pages in segment) */
 };
 
 struct Sema
@@ -390,10 +391,12 @@ struct Segment
 	usize	size;		/* size in pages */
 	ulong	fstart;		/* start address in file for demand load */
 	ulong	flen;		/* length of segment in file */
+	uchar	lg2pgsize;	/* log2(size of pages in segment) */
 	int	flushme;	/* maintain icache for this segment */
 	Image	*image;		/* text in file attached to this segment */
 	Physseg *pseg;
 	ulong*	profile;	/* Tick profile area */
+	uintptr	ptemapmem;	/* space mapped by one Pte in this segment */
 	Pte	**map;
 	int	mapsize;
 	Pte	*ssegmap[SSEGMAPSIZE];

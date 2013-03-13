@@ -25,6 +25,8 @@ newseg(int type, uintptr base, uintptr top)
 	s->base = base;
 	s->top = top;
 	s->size = size;
+	s->lg2pgsize = PGSHFT;
+	s->ptemapmem = PTEPERTAB<<s->lg2pgsize;
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
 
@@ -184,11 +186,11 @@ segpage(Segment *s, Page *p)
 		panic("segpage");
 
 	soff = p->va - s->base;
-	pte = &s->map[soff/PTEMAPMEM];
+	pte = &s->map[soff/s->ptemapmem];
 	if(*pte == 0)
 		*pte = ptealloc();
 
-	pg = &(*pte)->pages[(soff&(PTEMAPMEM-1))/PGSZ];
+	pg = &(*pte)->pages[(soff&(s->ptemapmem-1))>>s->lg2pgsize];
 	*pg = p;
 	if(pg < (*pte)->first)
 		(*pte)->first = pg;
@@ -208,13 +210,13 @@ mfreeseg(Segment *s, uintptr start, uintptr top)
 	Page *pg;
 	Page *list;
 
-	pages = (top-start)>>PGSHFT;
+	pages = (top-start)>>s->lg2pgsize;
 	soff = start-s->base;
-	j = (soff&(PTEMAPMEM-1))/PGSZ;
+	j = (soff&(s->ptemapmem-1))>>s->lg2pgsize;
 
 	size = s->mapsize;
 	list = nil;
-	for(i = soff/PTEMAPMEM; i < size; i++) {
+	for(i = soff/s->ptemapmem; i < size; i++) {
 		if(pages <= 0)
 			break;
 		if(s->map[i] == 0) {

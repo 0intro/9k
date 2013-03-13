@@ -210,7 +210,7 @@ void		pexit(char*, int);
 void		pgrpcpy(Pgrp*, Pgrp*);
 void		pgrpnote(ulong, char*, long, int);
 int		psindex(int);
-void		pio(Segment*, uintptr, ulong, Page**);
+void		pio(Segment*, uintptr, uintptr, Page**);
 #define		poperror()		up->nerrlab--
 int		postnote(Proc*, int, char*, int);
 int		pprint(char*, ...);

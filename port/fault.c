@@ -66,18 +66,19 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 	int type;
 	int ref;
 	Pte **p, *etp;
-	uintptr mmuphys, soff;
 	Page **pg, *lkp, *new;
 	Page *(*fn)(Segment*, uintptr);
+	uintptr mmuphys, pgsize, soff;
 
-	addr &= ~(PGSZ-1);
+	pgsize = 1<<s->lg2pgsize;
+	addr &= ~(pgsize-1);
 	soff = addr-s->base;
-	p = &s->map[soff/PTEMAPMEM];
+	p = &s->map[soff/s->ptemapmem];
 	if(*p == 0)
 		*p = ptealloc();
 
 	etp = *p;
-	pg = &etp->pages[(soff&(PTEMAPMEM-1))/PGSZ];
+	pg = &etp->pages[(soff&(s->ptemapmem-1))>>s->lg2pgsize];
 	type = s->type&SG_TYPE;
 
 	if(pg < etp->first)
@@ -178,7 +179,7 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 }
 
 void
-pio(Segment *s, uintptr addr, ulong soff, Page **p)
+pio(Segment *s, uintptr addr, uintptr soff, Page **p)
 {
 	Page *new;
 	KMap *k;
@@ -187,7 +188,9 @@ pio(Segment *s, uintptr addr, ulong soff, Page **p)
 	char *kaddr;
 	ulong daddr;
 	Page *loadrec;
+	uintptr pgsize;
 
+	pgsize = 1<<s->lg2pgsize;
 	loadrec = *p;
 	if(!pagedout(*p) || loadrec != nil)
 		return;
@@ -201,8 +204,8 @@ pio(Segment *s, uintptr addr, ulong soff, Page **p)
 
 	c = s->image->c;
 	ask = s->flen-soff;
-	if(ask > PGSZ)
-		ask = PGSZ;
+	if(ask > pgsize)
+		ask = pgsize;
 	qunlock(&s->lk);
 
 	new = newpage(0, s, addr, 0);
@@ -223,8 +226,8 @@ pio(Segment *s, uintptr addr, ulong soff, Page **p)
 	n = c->dev->read(c, kaddr, ask, daddr);
 	if(n != ask)
 		faulterror(Eioload, c, 0);
-	if(ask < PGSZ)
-		memset(kaddr+ask, 0, PGSZ-ask);
+	if(ask < pgsize)
+		memset(kaddr+ask, 0, pgsize-ask);
 
 	poperror();
 	kunmap(k);

@@ -1550,7 +1550,7 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 	Pte *pte;
 	Page *pg;
 	Segment *s;
-	uintptr soff, l;	/* hmmmm */
+	uintptr soff, l, pgsize;	/* hmmmm */
 	uchar *b;
 
 	for(;;) {
@@ -1576,14 +1576,15 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 		s->steal--;
 	}
 	poperror();
-	pte = s->map[soff/PTEMAPMEM];
+	pte = s->map[soff/s->ptemapmem];
 	if(pte == 0)
 		panic("procctlmemio");
-	pg = pte->pages[(soff&(PTEMAPMEM-1))/PGSZ];
+	pg = pte->pages[(soff&(s->ptemapmem-1))>>s->lg2pgsize];
 	if(pagedout(pg))
 		panic("procctlmemio1");
 
-	l = PGSZ - (offset&(PGSZ-1));
+	pgsize = 1<<s->lg2pgsize;
+	l = pgsize - (offset&(pgsize-1));
 	if(n > l)
 		n = l;
 
@@ -1594,7 +1595,7 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 		nexterror();
 	}
 	b = (uchar*)VA(k);
-	b += offset&(PGSZ-1);
+	b += offset&(pgsize-1);
 	if(read == 1)
 		memmove(va, b, n);	/* This can fault */
 	else
