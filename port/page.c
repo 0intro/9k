@@ -173,8 +173,12 @@ pagechainhead(Page *p)
 	palloc.freecount++;
 }
 
+/*
+ * allocate and return a new page for the given virtual address in segment s;
+ * return nil iff s was locked on entry and had to be unlocked to wait for memory.
+ */
 Page*
-newpage(int clear, Segment **s, uintptr va)
+newpage(int clear, Segment *s, uintptr va, int locked)
 {
 	Page *p;
 	KMap *k;
@@ -194,9 +198,9 @@ if(up == nil)
 
 		unlock(&palloc);
 		dontalloc = 0;
-		if(s && *s) {
-			qunlock(&((*s)->lk));
-			*s = 0;
+		if(locked){
+			qunlock(&s->lk);
+			locked = 0;
 			dontalloc = 1;
 		}
 		qlock(&palloc.pwait);	/* Hold memory requesters here */
@@ -220,7 +224,7 @@ if(up == nil)
 		 * reacquired the segment locks
 		 */
 		if(dontalloc)
-			return 0;
+			return nil;
 
 		lock(&palloc);
 	}
@@ -330,6 +334,9 @@ duppage(Page *p)				/* Always call with p locked */
 
 	retries = 0;
 retry:
+	/* don't dup shared page */
+	if(p->ref != 1)
+		return 0;
 
 	if(retries++ > dupretries){
 		print("duppage %d, up %#p\n", retries, up);

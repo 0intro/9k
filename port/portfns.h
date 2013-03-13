@@ -186,7 +186,7 @@ Chan*		newchan(void);
 int		newfd(Chan*);
 Mhead*		newmhead(Chan*);
 Mount*		newmount(Mhead*, Chan*, int, char*);
-Page*		newpage(int, Segment **, uintptr);
+Page*		newpage(int, Segment*, uintptr, int);
 Path*		newpath(char*);
 Pgrp*		newpgrp(void);
 Rgrp*		newrgrp(void);

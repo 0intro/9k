@@ -103,8 +103,8 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 	case SG_SHARED:			/* Zero fill on demand */
 	case SG_STACK:
 		if(*pg == 0) {
-			new = newpage(1, &s, addr);
-			if(s == 0)
+			new = newpage(1, s, addr, 1);
+			if(new == nil)
 				return -1;
 
 			*pg = new;
@@ -130,22 +130,22 @@ fixfault(Segment *s, uintptr addr, int read, int dommuput)
 		lock(lkp);
 
 		ref = lkp->ref;
-		if(ref > 1) {
-			unlock(lkp);
+		if(ref <= 0)
+			panic("fault: page->ref %d <= 0", ref);
 
-			new = newpage(0, &s, addr);
-			if(s == 0)
+		if(ref == 1 && lkp->image != nil){
+			duppage(lkp);
+			ref = lkp->ref;
+		}
+		unlock(lkp);
+
+		if(ref > 1) {
+			new = newpage(0, s, addr, 1);
+			if(new == nil)
 				return -1;
 			*pg = new;
 			copypage(lkp, *pg);
 			putpage(lkp);
-		}
-		else {
-			/* save a copy of the original for the image cache */
-			if(lkp->image != nil)
-				duppage(lkp);
-
-			unlock(lkp);
 		}
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
@@ -205,7 +205,10 @@ pio(Segment *s, uintptr addr, ulong soff, Page **p)
 		ask = PGSZ;
 	qunlock(&s->lk);
 
-	new = newpage(0, 0, addr);
+	new = newpage(0, s, addr, 0);
+	if(new == nil)
+		panic("pio");	/* can't happen, s wasn't locked */
+
 	k = kmap(new);
 	kaddr = (char*)VA(k);
 

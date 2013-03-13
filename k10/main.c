@@ -389,7 +389,7 @@ userinit(void)
 	 */
 	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/PGSZ);
 	p->seg[SSEG] = s;
-	pg = newpage(1, 0, USTKTOP-PGSZ);
+	pg = newpage(1, s, USTKTOP-PGSZ, 0);
 	segpage(s, pg);
 	k = kmap(pg);
 	bootargs(VA(k));
@@ -401,7 +401,7 @@ userinit(void)
 	s = newseg(SG_TEXT, UTZERO, 1);
 	s->flushme++;
 	p->seg[TSEG] = s;
-	pg = newpage(1, 0, UTZERO);
+	pg = newpage(1, s, UTZERO, 0);
 	memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
 	segpage(s, pg);
 	k = kmap(s->map[0]->pages[0]);

@@ -85,6 +85,15 @@ ibrk(uintptr addr, int seg)
 	newtop = ROUNDUP(addr, PGSZ);
 	newsize = (newtop-s->base)/PGSZ;
 	if(newtop < s->top) {
+		/*
+		 * do not shrink a segment shared with other procs, as the
+		 * to-be-freed address space may have been passed to the kernel
+		 * already by another proc and is past the validaddr stage.
+		 */
+		if(s->ref > 1){
+			qunlock(&s->lk);
+			error(Einuse);
+		}
 		mfreeseg(s, newtop, (s->top-newtop)/PGSZ);
 		s->top = newtop;
 		s->size = newsize;
