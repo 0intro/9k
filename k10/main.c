@@ -389,7 +389,7 @@ userinit(void)
 	 */
 	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKTOP);
 	p->seg[SSEG] = s;
-	pg = newpage(1, s, USTKTOP-PGSZ, 0);
+	pg = newpage(1, s, USTKTOP-(1<<s->lg2pgsize), 0);
 	segpage(s, pg);
 	k = kmap(pg);
 	bootargs(VA(k));
