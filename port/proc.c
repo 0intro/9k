@@ -69,6 +69,7 @@ schedinit(void)		/* never returns */
 	if(up) {
 		if((e = up->edf) && (e->flags & Admitted))
 			edfrecord(up);
+		updatecpu(up);
 		m->proc = 0;
 		switch(up->state) {
 		case Running:
@@ -76,10 +77,6 @@ schedinit(void)		/* never returns */
 			break;
 		case Moribund:
 			up->state = Dead;
-			edfstop(up);
-			if (up->edf)
-				free(up->edf);
-			up->edf = nil;
 
 			/*
 			 * Holding locks from pexit:
@@ -94,7 +91,6 @@ schedinit(void)		/* never returns */
 			break;
 		}
 		up->mach = nil;
-		updatecpu(up);
 		up = nil;
 	}
 	sched();
@@ -1139,11 +1135,16 @@ pexit(char *exitstr, int freemem)
 	}
 	qunlock(&up->debug);
 
+	edfstop(up);
+	if(up->edf){
+		free(up->edf);
+		up->edf = nil;
+	}
+
 	/* Sched must not loop for these locks */
 	lock(&procalloc);
 	lock(&palloc);
 
-	edfstop(up);
 	up->state = Moribund;
 	sched();
 	panic("pexit");
