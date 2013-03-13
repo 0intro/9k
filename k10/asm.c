@@ -366,26 +366,30 @@ asmmeminit(void)
 		lo = ROUNDUP(asm->addr, PGSZ);
 		asm->base = lo;
 		hi = ROUNDDN(hi, PGSZ);
+		asm->limit = hi;
 		asm->kbase = PTR2UINT(KADDR(asm->base));
-		asm->npage = (ROUNDDN(hi, PGSZ) - asm->base)/PGSZ;
 	}
 
-	i = (sys->vmend - sys->vmstart)/PGSZ;		/* close enough */
-	ialloclimit((i/2)*PGSZ);
+	n = sys->vmend - sys->vmstart;			/* close enough */
+	if(n > 600*MiB)
+		n = 600*MiB;
+	ialloclimit(n/2);
+
 	pm = palloc.mem;
 	j = 0;
 	for(asm = asmlist; asm != nil; asm = asm->next){
-		if((n = asm->npage) == 0)
+		if(asm->limit == asm->base)
 			continue;
 		if(pm >= palloc.mem+nelem(palloc.mem)){
-			print("asmmeminit: losing %#P pages\n", asm->npage-n);
+			print("asmmeminit: losing %#P pages\n",
+				(asm->limit - asm->base)/PGSZ);
 			continue;
 		}
 		pm->base = asm->base;
-		pm->npage = asm->npage;
+		pm->limit = asm->limit;
 
-		DBG("asmmeminit: base %#P npage %llud pm%d: base %#P npage %llud\n",
-			asm->base, asm->npage, j, pm->base, pm->npage);
+		DBG("asm pm%d: base %#P limit %#P npage %llud\n",
+			j, pm->base, pm->limit, (pm->limit - pm->base)/PGSZ);
 		j++;
 		pm++;
 	}

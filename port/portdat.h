@@ -467,7 +467,7 @@ enum
 struct Pallocmem
 {
 	uintmem	base;
-	uintmem	npage;
+	uintmem	limit;
 	int	color;
 };
 

@@ -105,7 +105,7 @@ struct Asm
 	int	location;
 	Asm*	next;
 	uintmem base;	/* used by port; ROUNDUP(addr, PGSZ) */
-	uintmem	npage;	/* used by port; # of pages available starting at base */
+	uintmem	limit;	/* used by port; ROUNDDN(addr+size, PGSZ) */
 	uintptr	kbase;	/* used by port; kernel for base, used by devproc */
 };
 extern Asm* asmlist;

@@ -776,7 +776,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		for(asm = asmlist; asm != nil; asm = asm->next){
 			if(asm->kbase == 0)
 				continue;
-			klimit = asm->kbase + asm->npage * PGSZ;
+			klimit = asm->kbase + (asm->limit - asm->base);
 
 			/* klimit-1 because klimit might be zero!; hmmm not now but... */
 			if(asm->kbase <= offset && offset <= klimit-1){

@@ -19,8 +19,9 @@ splitbank(int i, int e)
 {
 	Pallocmem *pm;
 	uintmem psz;
-	uintmem npg;
 
+	if(e == nelem(palloc.mem))
+		return 0;
 	pm = &palloc.mem[i];
 	pm->color  = memcolor(pm->base, &psz);
 	if(pm->color < 0){
@@ -29,17 +30,17 @@ splitbank(int i, int e)
 			pm->color = pm[-1].color;
 		return 0;
 	}
-	npg = psz/PGSZ;
 
-	if(e == nelem(palloc.mem) || npg <= 1 || npg >= pm->npage)
+	if(psz <= PGSZ || psz >= (pm->limit - pm->base))
 		return 0;
 	if(i+1 < e)
 		memmove(pm+2, pm+1, (e-i-1)*sizeof(Pallocmem));
-	pm[1].base = pm->base + npg*PGSZ;
-	pm[1].npage = pm->npage - npg;
-	DBG("palloc split[%d] col %d %#P %#ulld -> %ulld\n",
-		i, pm->color, pm->base, pm->npage, npg);
-	pm->npage = npg;
+	pm[1].base = pm->base + psz;
+	pm[1].limit = pm->limit;
+	pm->limit = pm[1].base;
+	DBG("palloc split[%d] col %d %#P %#P -> %#P\n",
+		i, pm->color, pm->base, pm[1].limit, pm->limit);
+
 	return 1;
 }
 
@@ -52,13 +53,13 @@ pageinit(void)
 	uintmem np, pkb, kkb, kmkb, mkb;
 
 	for(e = 0; e < nelem(palloc.mem); e++){
-		if(palloc.mem[e].npage == 0)
+		if(palloc.mem[e].base == palloc.mem[e].limit)
 			break;
 	}
 
 	/*
-	 * Compute # of pages and split banks if not of the same color
-	 * and there's room for doing so.
+	 * Split banks if not of the same color
+	 * and the array can hold another item.
 	 */
 	np = 0;
 	for(i=0; i<e; i++){
@@ -66,18 +67,18 @@ pageinit(void)
 		if(splitbank(i, e))
 			e++;
 
-		print("palloc[%d] col %d %#P %llud\n",
-			i, pm->color, pm->base, pm->npage);
+		print("palloc[%d] col %d %#P %#P\n",
+			i, pm->color, pm->base, pm->limit);
 
 /* BUG; can't handle it all right now */
 if(pm->base > 600*MiB){
-	pm->npage = 0;
+	pm->limit = pm->base;
 	continue;
 }
-if(pm->base+pm->npage*PGSZ > 600*MiB)
-	pm->npage = pm->npage = (600*MiB-pm->base)/PGSZ;
+if(pm->limit > 600*MiB)
+	pm->limit = 600*MiB;
 
-		np += pm->npage;
+		np += (pm->limit - pm->base)/PGSZ;
 	}
 
 	palloc.pages = malloc(np*sizeof(Page));
@@ -88,7 +89,8 @@ if(pm->base+pm->npage*PGSZ > 600*MiB)
 	p = palloc.head;
 	for(i=0; i<e; i++){
 		pm = &palloc.mem[i];
-		for(j=0; j<pm->npage; j++){
+		np = (pm->limit - pm->base)/PGSZ;
+		for(j=0; j<np; j++){
 			p->prev = p-1;
 			p->next = p+1;
 			p->pa = pm->base+j*PGSZ;
