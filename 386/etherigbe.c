@@ -1,5 +1,5 @@
 /*
- * Intel 8254[340]NN Gigabit Ethernet Controller
+ * Intel 8254[340]NN Gigabit Ethernet PCI Controllers
  * as found on the Intel PRO/1000 series of adapters:
  *	82543GC	Intel PRO/1000 T
  *	82544EI Intel PRO/1000 XT
@@ -33,16 +33,19 @@ enum {
 	i82542		= (0x1000<<16)|0x8086,
 	i82543gc	= (0x1004<<16)|0x8086,
 	i82544ei	= (0x1008<<16)|0x8086,
-	i82547ei	= (0x1019<<16)|0x8086,
+	i82544eif	= (0x1009<<16)|0x8086,
+	i82544gc	= (0x100d<<16)|0x8086,
 	i82540em	= (0x100E<<16)|0x8086,
 	i82540eplp	= (0x101E<<16)|0x8086,
 	i82545em	= (0x100F<<16)|0x8086,
 	i82545gmc	= (0x1026<<16)|0x8086,
+	i82547ei	= (0x1019<<16)|0x8086,
 	i82547gi	= (0x1075<<16)|0x8086,
+	i82541ei	= (0x1013<<16)|0x8086,
 	i82541gi	= (0x1076<<16)|0x8086,
 	i82541gi2	= (0x1077<<16)|0x8086,
-	i82546gb	= (0x1079<<16)|0x8086,
 	i82541pi	= (0x107c<<16)|0x8086,
+	i82546gb	= (0x1079<<16)|0x8086,
 	i82546eb	= (0x1010<<16)|0x8086,
 };
 
@@ -64,6 +67,7 @@ enum {
 	Fcttv		= 0x00000170,	/* Flow Control Transmit Timer Value */
 	Txcw		= 0x00000178,	/* Transmit Configuration Word */
 	Rxcw		= 0x00000180,	/* Receive Configuration Word */
+	/* on the oldest cards (8254[23]), the Mta register is at 0x200 */
 	Tctl		= 0x00000400,	/* Transmit Control */
 	Tipg		= 0x00000410,	/* Transmit IPG */
 	Tbt		= 0x00000448,	/* Transmit Burst Timer */
@@ -137,10 +141,15 @@ enum {					/* Ctrl */
 	Vme		= 0x40000000,	/* VLAN Mode Enable */
 };
 
+/*
+ * can't find Tckok nor Rbcok in any Intel docs,
+ * but even 82543gc docs define Lanid.
+ */
 enum {					/* Status */
 	Lu		= 0x00000002,	/* Link Up */
-	Tckok		= 0x00000004,	/* Transmit clock is running */
-	Rbcok		= 0x00000008,	/* Receive clock is running */
+	Lanid		= 0x0000000C,	/* mask for Lan ID. (function id) */
+//	Tckok		= 0x00000004,	/* Transmit clock is running */
+//	Rbcok		= 0x00000008,	/* Receive clock is running */
 	Txoff		= 0x00000010,	/* Transmission Paused */
 	Tbimode		= 0x00000020,	/* TBI Mode Indication */
 	LspeedMASK	= 0x000000C0,	/* Link Speed Setting */
@@ -447,6 +456,7 @@ typedef struct Ctlr {
 	int	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
+	Ether*	edev;
 	int	active;
 	int	started;
 	int	id;
@@ -513,7 +523,7 @@ static Ctlr* igbectlrhead;
 static Ctlr* igbectlrtail;
 
 static Lock igberblock;		/* free receive Blocks */
-static Block* igberbpool;
+static Block* igberbpool;	/* receive Blocks for all igbe controllers */
 
 static char* statistics[Nstatistics] = {
 	"CRC Error",
@@ -592,7 +602,11 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
-	p = malloc(2*READSTR);
+	p = malloc(READSTR);
+	if(p == nil) {
+		qunlock(&ctlr->slock);
+		error(Enomem);
+	}
 	l = 0;
 	for(i = 0; i < Nstatistics; i++){
 		r = csr32r(ctlr, Statistics+i*4);
@@ -612,7 +626,7 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 				continue;
 			ctlr->statistics[i] = tuvl;
 			ctlr->statistics[i+1] = tuvl>>32;
-			l += snprint(p+l, 2*READSTR-l, "%s: %llud %llud\n",
+			l += snprint(p+l, READSTR-l, "%s: %llud %llud\n",
 				s, tuvl, ruvl);
 			i++;
 			break;
@@ -621,40 +635,40 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 			ctlr->statistics[i] += r;
 			if(ctlr->statistics[i] == 0)
 				continue;
-			l += snprint(p+l, 2*READSTR-l, "%s: %ud %ud\n",
+			l += snprint(p+l, READSTR-l, "%s: %ud %ud\n",
 				s, ctlr->statistics[i], r);
 			break;
 		}
 	}
 
-	l += snprint(p+l, 2*READSTR-l, "lintr: %ud %ud\n",
+	l += snprint(p+l, READSTR-l, "lintr: %ud %ud\n",
 		ctlr->lintr, ctlr->lsleep);
-	l += snprint(p+l, 2*READSTR-l, "rintr: %ud %ud\n",
+	l += snprint(p+l, READSTR-l, "rintr: %ud %ud\n",
 		ctlr->rintr, ctlr->rsleep);
-	l += snprint(p+l, 2*READSTR-l, "tintr: %ud %ud\n",
+	l += snprint(p+l, READSTR-l, "tintr: %ud %ud\n",
 		ctlr->tintr, ctlr->txdw);
-	l += snprint(p+l, 2*READSTR-l, "ixcs: %ud %ud %ud\n",
+	l += snprint(p+l, READSTR-l, "ixcs: %ud %ud %ud\n",
 		ctlr->ixsm, ctlr->ipcs, ctlr->tcpcs);
-	l += snprint(p+l, 2*READSTR-l, "rdtr: %ud\n", ctlr->rdtr);
-	l += snprint(p+l, 2*READSTR-l, "Ctrlext: %08x\n", csr32r(ctlr, Ctrlext));
+	l += snprint(p+l, READSTR-l, "rdtr: %ud\n", ctlr->rdtr);
+	l += snprint(p+l, READSTR-l, "Ctrlext: %08x\n", csr32r(ctlr, Ctrlext));
 
-	l += snprint(p+l, 2*READSTR-l, "eeprom:");
+	l += snprint(p+l, READSTR-l, "eeprom:");
 	for(i = 0; i < 0x40; i++){
 		if(i && ((i & 0x07) == 0))
-			l += snprint(p+l, 2*READSTR-l, "\n       ");
-		l += snprint(p+l, 2*READSTR-l, " %4.4uX", ctlr->eeprom[i]);
+			l += snprint(p+l, READSTR-l, "\n       ");
+		l += snprint(p+l, READSTR-l, " %4.4uX", ctlr->eeprom[i]);
 	}
-	l += snprint(p+l, 2*READSTR-l, "\n");
+	l += snprint(p+l, READSTR-l, "\n");
 
 	if(ctlr->mii != nil && ctlr->mii->curphy != nil){
-		l += snprint(p+l, 2*READSTR, "phy:   ");
+		l += snprint(p+l, READSTR-l, "phy:   ");
 		for(i = 0; i < NMiiPhyr; i++){
 			if(i && ((i & 0x07) == 0))
-				l += snprint(p+l, 2*READSTR-l, "\n       ");
+				l += snprint(p+l, READSTR-l, "\n       ");
 			r = miimir(ctlr->mii, i);
-			l += snprint(p+l, 2*READSTR-l, " %4.4uX", r);
+			l += snprint(p+l, READSTR-l, " %4.4uX", r);
 		}
-		snprint(p+l, 2*READSTR-l, "\n");
+		snprint(p+l, READSTR-l, "\n");
 	}
 	n = readstr(offset, a, n, p);
 	free(p);
@@ -695,7 +709,7 @@ igbectl(Ether* edev, void* buf, long n)
 		v = strtol(cb->f[1], &p, 0);
 		if(v < 0 || p == cb->f[1] || v > 0xFFFF)
 			error(Ebadarg);
-		ctlr->rdtr = v;;
+		ctlr->rdtr = v;
 		csr32w(ctlr, Rdtr, Fpd|v);
 		break;
 	}
@@ -722,11 +736,11 @@ igbepromiscuous(void* arg, int on)
 		rctl |= Upe|Mpe;
 	else
 		rctl &= ~(Upe|Mpe);
-	csr32w(ctlr, Rctl, rctl);
+	csr32w(ctlr, Rctl, rctl|Mpe);	/* temporarily keep Mpe on */
 }
 
 static void
-igbemulticast(void* arg, uchar* addr, int on)
+igbemulticast(void* arg, uchar* addr, int add)
 {
 	int bit, x;
 	Ctlr *ctlr;
@@ -737,10 +751,17 @@ igbemulticast(void* arg, uchar* addr, int on)
 
 	x = addr[5]>>1;
 	bit = ((addr[5] & 1)<<4)|(addr[4]>>4);
-	if(on)
+	/*
+	 * multiple ether addresses can hash to the same filter bit,
+	 * so it's never safe to clear a filter bit.
+	 * if we want to clear filter bits, we need to keep track of
+	 * all the multicast addresses in use, clear all the filter bits,
+	 * then set the ones corresponding to in-use addresses.
+	 */
+	if(add)
 		ctlr->mta[x] |= 1<<bit;
-	else
-		ctlr->mta[x] &= ~(1<<bit);
+//	else
+//		ctlr->mta[x] &= ~(1<<bit);
 
 	csr32w(ctlr, Mta+x*4, ctlr->mta[x]);
 }
@@ -754,6 +775,7 @@ igberballoc(void)
 	if((bp = igberbpool) != nil){
 		igberbpool = bp->next;
 		bp->next = nil;
+//		ainc(&bp->ref);		/* prevent bp from being freed */
 	}
 	iunlock(&igberblock);
 
@@ -799,8 +821,10 @@ igbelproc(void* arg)
 	edev = arg;
 	ctlr = edev->ctlr;
 	for(;;){
-		if(ctlr->mii == nil || ctlr->mii->curphy == nil)
+		if(ctlr->mii == nil || ctlr->mii->curphy == nil) {
+			sched();
 			continue;
+		}
 
 		/*
 		 * To do:
@@ -820,6 +844,7 @@ igbelproc(void* arg)
 		switch(ctlr->id){
 		case i82543gc:
 		case i82544ei:
+		case i82544eif:
 		default:
 			if(!(ctrl & Asde)){
 				ctrl &= ~(SspeedMASK|Ilos|Fd);
@@ -884,9 +909,11 @@ igbetxinit(Ctlr* ctlr)
 		break;
 	case i82543gc:
 	case i82544ei:
-	case i82547ei:
+	case i82544eif:
+	case i82544gc:
 	case i82540em:
 	case i82540eplp:
+	case i82541ei:
 	case i82541gi:
 	case i82541gi2:
 	case i82541pi:
@@ -894,6 +921,7 @@ igbetxinit(Ctlr* ctlr)
 	case i82545gmc:
 	case i82546gb:
 	case i82546eb:
+	case i82547ei:
 	case i82547gi:
 		r = 8;
 		break;
@@ -1017,7 +1045,8 @@ igbereplenish(Ctlr* ctlr)
 		if(ctlr->rb[rdt] == nil){
 			bp = igberballoc();
 			if(bp == nil){
-				iprint("no available buffers\n");
+				iprint("#l%d: igbereplenish: no available buffers\n",
+					ctlr->edev->ctlrno);
 				break;
 			}
 			ctlr->rb[rdt] = bp;
@@ -1039,7 +1068,8 @@ igberxinit(Ctlr* ctlr)
 	int i;
 	Block *bp;
 
-	csr32w(ctlr, Rctl, Dpf|Bsize2048|Bam|RdtmsHALF);
+	/* temporarily keep Mpe on */
+	csr32w(ctlr, Rctl, Dpf|Bsize2048|Bam|RdtmsHALF|Mpe);
 
 	csr32w(ctlr, Rdbal, PCIWADDR(ctlr->rdba));
 	csr32w(ctlr, Rdbah, 0);
@@ -1177,25 +1207,17 @@ igbeattach(Ether* edev)
 	char name[KNAMELEN];
 
 	ctlr = edev->ctlr;
+	ctlr->edev = edev;			/* point back to Ether* */
 	qlock(&ctlr->alock);
-	if(ctlr->alloc != nil){
+	if(ctlr->alloc != nil){			/* already allocated? */
 		qunlock(&ctlr->alock);
 		return;
 	}
 
-	ctlr->nrd = ROUNDUP(Nrd, 8);
-	ctlr->ntd = ROUNDUP(Ntd, 8);
-	ctlr->alloc = malloc(ctlr->nrd*sizeof(Rd)+ctlr->ntd*sizeof(Td) + 127);
-	if(ctlr->alloc == nil){
-		qunlock(&ctlr->alock);
-		return;
-	}
-	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 128);
-	ctlr->tdba = (Td*)(ctlr->rdba+ctlr->nrd);
-
-	ctlr->rb = malloc(ctlr->nrd*sizeof(Block*));
-	ctlr->tb = malloc(ctlr->ntd*sizeof(Block*));
-
+	ctlr->tb = nil;
+	ctlr->rb = nil;
+	ctlr->alloc = nil;
+	ctlr->nrb = 0;
 	if(waserror()){
 		while(ctlr->nrb > 0){
 			bp = igberballoc();
@@ -1211,6 +1233,23 @@ igbeattach(Ether* edev)
 		ctlr->alloc = nil;
 		qunlock(&ctlr->alock);
 		nexterror();
+	}
+
+	ctlr->nrd = ROUNDUP(Nrd, 8);
+	ctlr->ntd = ROUNDUP(Ntd, 8);
+	ctlr->alloc = malloc(ctlr->nrd*sizeof(Rd)+ctlr->ntd*sizeof(Td) + 127);
+	if(ctlr->alloc == nil) {
+		print("igbe: can't allocate ctlr->alloc\n");
+		error(Enomem);
+	}
+	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 128);
+	ctlr->tdba = (Td*)(ctlr->rdba+ctlr->nrd);
+
+	ctlr->rb = malloc(ctlr->nrd*sizeof(Block*));
+	ctlr->tb = malloc(ctlr->ntd*sizeof(Block*));
+	if (ctlr->rb == nil || ctlr->tb == nil) {
+		print("igbe: can't allocate ctlr->rb or ctlr->tb\n");
+		error(Enomem);
 	}
 
 	for(ctlr->nrb = 0; ctlr->nrb < Nrb; ctlr->nrb++){
@@ -1471,10 +1510,13 @@ igbemii(Ctlr* ctlr)
 		rw = i82543miirw;
 		break;
 	case i82544ei:
-	case i82547ei:
+	case i82544eif:
+	case i82544gc:
 	case i82540em:
 	case i82540eplp:
+	case i82547ei:
 	case i82547gi:
+	case i82541ei:
 	case i82541gi:
 	case i82541gi2:
 	case i82541pi:
@@ -1634,16 +1676,18 @@ at93c46r(Ctlr* ctlr)
 	default:
 		areq = 0;
 		break;
-	case i82541gi:
-	case i82547gi:
 	case i82540em:
 	case i82540eplp:
-	case i82541pi:
+	case i82541ei:
+	case i82541gi:
 	case i82541gi2:
+	case i82541pi:
 	case i82545em:
 	case i82545gmc:
 	case i82546gb:
 	case i82546eb:
+	case i82547ei:
+	case i82547gi:
 		areq = 1;
 		csr32w(ctlr, Eecd, eecd|Areq);
 		for(i = 0; i < 1000; i++){
@@ -1724,11 +1768,11 @@ igbedetach(Ctlr* ctlr)
 	case i82540em:
 	case i82540eplp:
 	case i82541gi:
-	case i82541pi:
-	case i82547gi:
 	case i82541gi2:
+	case i82541pi:
 	case i82545em:
 	case i82545gmc:
+	case i82547gi:
 	case i82546gb:
 	case i82546eb:
 		r = csr32r(ctlr, Manc);
@@ -1778,12 +1822,19 @@ igbereset(Ctlr* ctlr)
 	 * There are 16 addresses. The first should be the MAC address.
 	 * The others are cleared and not marked valid (MS bit of Rah).
 	 */
-	if ((ctlr->id == i82546gb || ctlr->id == i82546eb) && BUSFNO(ctlr->pcidev->tbdf) == 1)
-		ctlr->eeprom[Ea+2] += 0x100;	// second interface
+	if ((ctlr->id == i82546gb || ctlr->id == i82546eb) &&
+	    BUSFNO(ctlr->pcidev->tbdf) == 1)
+		ctlr->eeprom[Ea+2] += 0x100;		/* second interface */
 	for(i = Ea; i < Eaddrlen/2; i++){
 		ctlr->ra[2*i] = ctlr->eeprom[i];
 		ctlr->ra[2*i+1] = ctlr->eeprom[i]>>8;
 	}
+	/* lan id seems to vary on 82543gc; don't use it */
+	if (ctlr->id != i82543gc) {
+		r = (csr32r(ctlr, Status) & Lanid) >> 2;
+		ctlr->ra[5] += r;		/* ea ctlr[1] = ea ctlr[0]+1 */
+	}
+
 	r = (ctlr->ra[3]<<24)|(ctlr->ra[2]<<16)|(ctlr->ra[1]<<8)|ctlr->ra[0];
 	csr32w(ctlr, Ral, r);
 	r = 0x80000000|(ctlr->ra[5]<<8)|ctlr->ra[4];
@@ -1803,9 +1854,9 @@ igbereset(Ctlr* ctlr)
 
 	/*
 	 * Just in case the Eerst didn't load the defaults
-	 * (doesn't appear to fully on the 8243GC), do it manually.
+	 * (doesn't appear to fully on the 82543GC), do it manually.
 	 */
-	if (ctlr->id == i82543gc) {	// 82543
+	if (ctlr->id == i82543gc) {
 		txcw = csr32r(ctlr, Txcw);
 		txcw &= ~(TxcwAne|TxcwPauseMASK|TxcwFd);
 		ctrl = csr32r(ctlr, Ctrl);
@@ -1878,7 +1929,6 @@ igbereset(Ctlr* ctlr)
 static void
 igbepci(void)
 {
-	int cls;
 	Pcidev *p;
 	Ctlr *ctlr;
 	void *mem;
@@ -1893,11 +1943,14 @@ igbepci(void)
 			continue;
 		case i82543gc:
 		case i82544ei:
+		case i82544eif:
+		case i82544gc:
 		case i82547ei:
+		case i82547gi:
 		case i82540em:
 		case i82540eplp:
+		case i82541ei:
 		case i82541gi:
-		case i82547gi:
 		case i82541gi2:
 		case i82541pi:
 		case i82545em:
@@ -1912,24 +1965,25 @@ igbepci(void)
 			print("igbe: can't map %#8.8lux\n", p->mem[0].bar);
 			continue;
 		}
-		cls = pcicfgr8(p, PciCLS);
-		switch(cls){
-			default:
-				print("igbe: unexpected CLS - %d\n", cls*4);
-				break;
-			case 0x00:
-			case 0xFF:
-				print("igbe: unusable CLS\n");
-				continue;
-			case 0x08:
-			case 0x10:
-				break;
+		switch(p->cls){
+		default:
+			print("igbe: p->cls %#ux, setting to 0x10\n", p->cls);
+			p->cls = 0x10;
+			pcicfgw8(p, PciCLS, p->cls);
+			break;
+		case 0x08:
+		case 0x10:
+			break;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil) {
+			vunmap(mem, p->mem[0].size);
+			error(Enomem);
+		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;
-		ctlr->cls = cls*4;
+		ctlr->cls = p->cls*4;
 		ctlr->nic = mem;
 
 		if(igbereset(ctlr)){

@@ -1668,6 +1668,16 @@ i82563pci(void)
 			print("%s: can't map %.8lux\n", tname[type], io);
 			continue;
 		}
+		switch(p->cls){
+		default:
+			print("igbe: p->cls %#ux, setting to 0x10\n", p->cls);
+			p->cls = 0x10;
+			pcicfgw8(p, PciCLS, p->cls);
+			break;
+		case 0x08:
+		case 0x10:
+			break;
+		}
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil) {
 			vunmap(mem, p->mem[0].size);
