@@ -541,10 +541,10 @@ realloc(void* ap, ulong size)
 	 */
 	MLOCK;
 	if(tailptr != nil && p+ounits == tailptr){
-		if((delta = ounits-nunits) > 0 || tailsize <= delta){
+		if((delta = nunits-ounits) < 0 || tailsize >= delta){
 			p->s.size = nunits;
-			tailsize += delta;
-			tailptr -= delta;
+			tailsize -= delta;
+			tailptr += delta;
 			MUNLOCK;
 			return ap;
 		}
