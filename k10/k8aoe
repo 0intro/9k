@@ -17,13 +17,14 @@ dev +dev
 	ether		netif
 	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum
 
-	sd
-	aoe
-
 	uart
 
+	sd
+#	aoe
+
 sd +dev
-	sdaoe		sdscsi
+	sdiahci		pci sdscsi
+#	sdaoe		sdscsi
 
 uart +dev
 	uarti8250
@@ -41,14 +42,16 @@ link +dev
 	ether82557	pci
 	ether82563	pci
 	etherigbe	pci ethermii
-	etherm10g	pci ethermii
 	ethermedium
 	loopbackmedium
 	netdevmedium
 
+#	acpi		hpet
+#	ht
+
 misc +dev
-	cache
-	mp		apic ioapic pci
+#	cache
+	mp		apic ioapic pci sipi
 
 #
 #boot cpu
@@ -77,11 +80,31 @@ conf
 
 #
 #dbgflg
-# ioapic	'A'
-# chan		'C'
-# mp		'M'
-# pci		'P'
+#	chan		'c'
+#	apic		'A'
+#	acpi		'C'
+#	hpet		'H'
+#	ht		'H'
+#	ioapic		'I'
+#	mp		'M'
+#	pci		'P'
+#	arch		'V'
 #
+dbgflg
+	apic		'A'
+	acpi		'C'
+	hpet		'H'
+	ht		'H'
+	ioapic		'I'
+	mp		'M'
+	arch		'V'
+	archk8		'V'
+	archk10		'V'
+	sysproc		'E'
+	main		'x'
+	mmu		'm'
+	asm		'a'
+	sipi		'y'
 
 amd64 +dev
 	l32p
@@ -89,19 +112,22 @@ amd64 +dev
 	l64idt
 	l64syscall
 	l64fpu
-	cpuidamd64
+	l64cpuid
 	arch
 	archk8
+	asm
 	cga
 	crap
 	fpu
 	i8254
+	i8259
 	kbd
 	main
 	map
 	memory
 	mmu
 	multiboot
+	qmalloc
 	random
 	syscall
 	trap
@@ -109,7 +135,6 @@ amd64 +dev
 
 port
 	alarm
-	alloc		xalloc
 	allocb
 	chan
 	dev
