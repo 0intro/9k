@@ -156,7 +156,7 @@ deadlineintr(Ureg*, Timer *t)
 		if(up->trace && (pt = proctrace))
 			pt(up, SInts, 0);
 		up->delaysched++;
- 		delayedscheds++;
+		delayedscheds++;
 	}
 }
 
@@ -311,7 +311,7 @@ edfrun(Proc *p, int edfpri)
 			 * deschedule forthwith
 			 */
 			p->delaysched++;
- 			delayedscheds++;
+			delayedscheds++;
 			e->s = now;
 			return;
 		}

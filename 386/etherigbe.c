@@ -765,7 +765,7 @@ igberbfree(Block* bp)
 {
 	bp->rp = bp->lim - Rbsz;
 	bp->wp = bp->rp;
- 	bp->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
+	bp->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
 
 	ilock(&igberblock);
 	bp->next = igberbpool;

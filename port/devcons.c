@@ -1112,7 +1112,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 
 	case Qconfig:
 		error(Eperm);
-  		break;
+		break;
 
 	case Qreboot:
 		if(!iseve())

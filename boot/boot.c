@@ -88,7 +88,7 @@ boot(int argc, char *argv[])
 	kbmap();
 
 	/*
- 	 *  authentication agent
+	 *  authentication agent
 	 */
 	authentication(cpuflag);
 
@@ -119,7 +119,7 @@ boot(int argc, char *argv[])
 	rp = getenv("rootspec");
 	if(rp == nil)
 		rp = "";
-	
+
 	afd = fauth(fd, rp);
 	if(afd >= 0){
 		ai = auth_proxy(afd, auth_getkey, "proto=p9any role=client");

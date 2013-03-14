@@ -238,7 +238,7 @@ mfreeseg(Segment *s, uintptr start, uintptr top)
 			if(pg != nil){
 				pg->next = list;
 				list = pg;
-				s->map[i]->pages[j] = 0;
+				s->map[i]->pages[j] = nil;
 			}
 			if(--pages == 0)
 				goto out;

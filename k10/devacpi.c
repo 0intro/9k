@@ -266,21 +266,21 @@ cfgset32(uintptr p, u32int v, void* r)
 	pcicfgw32(&d, p, v);
 }
 
-static Regio memio = 
+static Regio memio =
 {
 	nil,
 	mget8, mset8, mget16, mset16,
 	mget32, mset32, mget64, mset64
 };
 
-static Regio ioio = 
+static Regio ioio =
 {
 	nil,
 	ioget8, ioset8, ioget16, ioset16,
 	ioget32, ioset32, nil, nil
 };
 
-static Regio cfgio = 
+static Regio cfgio =
 {
 	nil,
 	cfgget8, cfgset8, cfgget16, cfgset16,
@@ -805,7 +805,7 @@ static void
 dumpslit(Slit *sl)
 {
 	int i;
-	
+
 	DBG("acpi slit:\n");
 	for(i = 0; i < sl->rowlen*sl->rowlen; i++){
 		DBG(" %ux", sl->e[i/sl->rowlen][i%sl->rowlen].dist);
@@ -848,7 +848,7 @@ acpislit(uchar *p, int len)
 	dumpslit(slit);
 	for(i = 0; i < slit->rowlen; i++)
 		qsort(slit->e[i], slit->rowlen, sizeof(slit->e[0][0]), cmpslitent);
-	
+
 	dumpslit(slit);
 	return nil;	/* can be unmapped once parsed */
 }
@@ -1471,7 +1471,7 @@ acpiintr(Ureg*, void*)
 	for(i = 0; i < ngpes; i++)
 		if(getgpests(i)){
 			print("gpe %d on\n", i);
- 			en = getgpeen(i);
+			en = getgpeen(i);
 			setgpeen(i, 0);
 			clrgpests(i);
 			if(en != 0)
@@ -1488,7 +1488,7 @@ acpiintr(Ureg*, void*)
 	if(sts&1)
 		print("power button\n");
 	// XXX serve other interrupts here.
-	setpm1sts(sts);	
+	setpm1sts(sts);
 }
 
 static void
@@ -1530,7 +1530,7 @@ acpiioalloc(uint addr, int len)
 int
 acpiinit(void)
 {
- 	if(fadt.smicmd == 0){
+	if(fadt.smicmd == 0){
 		fmtinstall('G', Gfmt);
 		acpirsdptr();
 		if(fadt.smicmd == 0)
@@ -1649,7 +1649,7 @@ acpiread(Chan *c, void *a, long n, vlong off)
 				}
 				s = ns;
 			}
-					
+
 		}
 		return readstr(off, a, n, ttext);
 	case Qio:

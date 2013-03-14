@@ -280,7 +280,7 @@ main(int argc, char* argv[])
 
 	r = count*length;
 
-	tracefd = open("/dev/tracectl", ORDWR); 
+	tracefd = open("/dev/tracectl", ORDWR);
 
 	/* fork at bottom of loop since we are proc 0 */
 	for(i = 0; i < procs; i++) {
@@ -303,9 +303,9 @@ main(int argc, char* argv[])
 			assert(amt >= strlen(cmd));
 		}
 
-		if (i < procs-1) 
+		if (i < procs-1)
 		if (fork())
-			break;	
+			break;
 	}
 
 	if (tracefd > 0 && rank == 0)

@@ -3,9 +3,9 @@
 
 #define ESTR		256
 
-/* ping pong. You have to tell it if is ping or pong. you have to tell it the partner 
- * address. ping sends packet, waits in loop, replies with packet. 
- * pong is same except does not send an initial packet. always wire to core 1. 
+/* ping pong. You have to tell it if is ping or pong. you have to tell it the partner
+ * address. ping sends packet, waits in loop, replies with packet.
+ * pong is same except does not send an initial packet. always wire to core 1.
  */
 static void
 error(char* fmt, ...)
@@ -163,7 +163,7 @@ void wire(int core, int pri)
 		cmd = smprint("fixedpri %d\n", pri);
 		amt = write(procfd, cmd, strlen(cmd));
 		assert(amt >= strlen(cmd));
-	}	
+	}
 }
 
 void
@@ -322,7 +322,7 @@ main(int argc, char* argv[])
 	if((fd = open("/dev/torus", ORDWR)) < 0)
 		fatal("open /dev/torus: %r\n");
 
-	tracefd = open("/dev/tracectl", ORDWR); 
+	tracefd = open("/dev/tracectl", ORDWR);
 	if (tracefd < 0)
 		print("Warning: no trace device, no traces\n");
 
@@ -355,7 +355,7 @@ main(int argc, char* argv[])
 		if(write(tracefd, "stop", 5) < 5)
 			print("Warning: could not stop trace device\n");
 ;
-	
+
 	close(fd);
 
 	r = (count*length);
@@ -370,6 +370,6 @@ main(int argc, char* argv[])
 	print("recv\n");
 	for(i = 0; i < count; i++)
 		print("%d %lld\n", i, rtimes[i]);
-	
+
 	exits(0);
 }

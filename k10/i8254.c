@@ -165,7 +165,7 @@ i8254hz(u32int info[2][4])
 	}
 
 	/*
- 	 * Figure out clock frequency.
+	 * Figure out clock frequency.
 	 */
 	b = (b-a)<<1;
 	b *= Osc;

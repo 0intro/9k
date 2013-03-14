@@ -140,7 +140,7 @@ extern SDev* scsiid(SDev*, SDifc*);
  *  hardware info about a device
  */
 typedef struct {
-	ulong	port;	
+	ulong	port;
 	int	size;
 } Devport;
 

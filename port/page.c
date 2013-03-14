@@ -114,8 +114,8 @@ if(pm->limit > 600*MiB)
 
 	/* Paging numbers */
 	highwater = (palloc.user*5)/100;
-	if(highwater >= 64*MB/PGSZ)
-		highwater = 64*MB/PGSZ;
+	if(highwater >= 64*MiB/PGSZ)
+		highwater = 64*MiB/PGSZ;
 
 	print("%lldM memory: %lldK+%lldM kernel, %lldM user, %lldM lost\n",
 		mkb/KiB, kkb, kmkb/KiB, pkb/KiB, (mkb-kkb-kmkb-pkb)/KiB);
@@ -186,8 +186,6 @@ newpage(int clear, Segment *s, uintptr va, int locked)
 	uchar ct;
 	int i, hw, dontalloc, color;
 
-if(up == nil)
-   print("newpage called from %#p\n", getcallerpc(&clear));
 	lock(&palloc);
 	color = getpgcolor(va);
 	hw = highwater;
@@ -269,7 +267,7 @@ if(up == nil)
 int
 ispages(void*)
 {
-	return palloc.freecount >= highwater;
+	return palloc.freecount > highwater;
 }
 
 void
@@ -348,16 +346,15 @@ retry:
 		return 1;
 	}
 
+	/* don't dup pages with no image */
+	if(p->ref == 0 || p->image == nil || p->image->notext)
+		return 0;
+
 	/* don't dup large pages TO DO? */
 	if(p->lg2size != PGSHFT){
 		uncachepage(p);
 		return 1;
 	}
-
-
-	/* don't dup pages with no image */
-	if(p->ref == 0 || p->image == nil || p->image->notext)
-		return 0;
 
 	/*
 	 *  normal lock ordering is to call
@@ -374,7 +371,7 @@ retry:
 	}
 
 	/* No freelist cache when memory is relatively low */
-	if(palloc.freecount < highwater) {
+	if(palloc.freecount <= highwater) {
 		unlock(&palloc);
 		uncachepage(p);
 		return 1;

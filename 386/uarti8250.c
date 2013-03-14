@@ -176,7 +176,7 @@ i8250status(Uart* uart, void* buf, long n, long offset)
 		(msr & Dsr) != 0,
 		uart->hup_dsr,
 		(lcr & WlsMASK) + 5,
-		(ier & Ems) != 0, 
+		(ier & Ems) != 0,
 		(lcr & Pen) ? ((lcr & Eps) ? 'e': 'o'): 'n',
 		(mcr & Rts) != 0,
 		(lcr & Stb) ? 2: 1,
@@ -534,7 +534,7 @@ i8250disable(Uart* uart)
 	Ctlr *ctlr;
 
 	/*
- 	 * Turn off DTR and RTS, disable interrupts and fifos.
+	 * Turn off DTR and RTS, disable interrupts and fifos.
 	 */
 	(*uart->phys->dtr)(uart, 0);
 	(*uart->phys->rts)(uart, 0);
@@ -584,7 +584,7 @@ i8250enable(Uart* uart, int ie)
 	iunlock(ctlr);
 
 	/*
- 	 * Enable interrupts and turn on DTR and RTS.
+	 * Enable interrupts and turn on DTR and RTS.
 	 * Be careful if this is called to set up a polled serial line
 	 * early on not to try to enable interrupts as interrupt-
 	 * -enabling mechanisms might not be set up yet.
@@ -762,7 +762,7 @@ i8250console(char* cfg)
 		break;
 	case 1:
 		uart = &i8250uart[1];
-		break;	
+		break;
 	}
 
 //Madness. Something to do with the PCIe-only machine?

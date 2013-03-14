@@ -95,7 +95,7 @@ Dirtab procdir[] =
 	"text",		{Qtext},	0,			0000,
 	"wait",		{Qwait},	0,			0400,
 	"profile",	{Qprofile},	0,			0400,
-	"syscall",	{Qsyscall},	0,			0400,	
+	"syscall",	{Qsyscall},	0,			0400,
 };
 
 static

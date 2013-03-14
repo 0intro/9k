@@ -452,7 +452,7 @@ mpsinit(void)
 			l16get(pcmp->entry), l32get(pcmp->apicpa));
 
 		DBG(" xlength %#ux xchecksum %#ux\n",
-    			l16get(pcmp->xlength), pcmp->xchecksum);
+			l16get(pcmp->xlength), pcmp->xchecksum);
 	}
 	if(pcmp->xchecksum != 0){
 		p = ((u8int*)pcmp) + l16get(pcmp->length);

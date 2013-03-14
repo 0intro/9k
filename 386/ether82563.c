@@ -799,7 +799,7 @@ static void
 i82563rbfree(Block* b)
 {
 	b->rp = b->wp = (uchar*)ROUNDUP((uintptr)b->base, 4*KiB);
- 	b->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
+	b->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
 	ilock(&i82563rblock);
 	b->next = i82563rbpool;
 	i82563rbpool = b;

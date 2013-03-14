@@ -67,13 +67,13 @@ rtcattach(char* spec)
 	return devattach('r', spec);
 }
 
-static Walkqid*	 
+static Walkqid*
 rtcwalk(Chan* c, Chan *nc, char** name, int nname)
 {
 	return devwalk(c, nc, name, nname, rtcdir, nelem(rtcdir), devgen);
 }
 
-static long	 
+static long
 rtcstat(Chan* c, uchar* dp, long n)
 {
 	return devstat(c, dp, n, rtcdir, nelem(rtcdir), devgen);
@@ -95,14 +95,14 @@ rtcopen(Chan* c, int omode)
 	return devopen(c, omode, rtcdir, nelem(rtcdir), devgen);
 }
 
-static void	 
+static void
 rtcclose(Chan*)
 {
 }
 
 #define GETBCD(o) ((bcdclock[o]&0xf) + 10*(bcdclock[o]>>4))
 
-static long	 
+static long
 rtcextract(void)
 {
 	uchar bcdclock[Nbcd];
@@ -172,7 +172,7 @@ rtctime(void)
 	return t;
 }
 
-static long	 
+static long
 rtcread(Chan* c, void* buf, long n, vlong off)
 {
 	ulong t;
@@ -219,7 +219,7 @@ rtcread(Chan* c, void* buf, long n, vlong off)
 
 #define PUTBCD(n,o) bcdclock[o] = (n % 10) | (((n / 10) % 10)<<4)
 
-static long	 
+static long
 rtcwrite(Chan* c, void* buf, long n, vlong off)
 {
 	int t;
@@ -276,7 +276,7 @@ rtcwrite(Chan* c, void* buf, long n, vlong off)
 			return 0;
 		if(n > Nvsize)
 			n = Nvsize;
-	
+
 		start = a = smalloc(n);
 		if(waserror()){
 			free(start);

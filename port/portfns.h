@@ -304,7 +304,6 @@ char*		skipslash(char*);
 void		sleep(Rendez*, int (*)(void*), void*);
 void*		smalloc(ulong);
 char*		srvname(Chan*);
-#define		swapinit()
 void		syscallfmt(int, va_list list);
 void		sysretfmt(int, va_list, Ar0*, uvlong, uvlong);
 void		sysrforkchild(Proc*, Proc*);

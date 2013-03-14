@@ -881,7 +881,7 @@ smbfree(Block *b)
 	Bpool *p;
 
 	b->rp = b->wp = (uchar*)ROUNDUP((uintptr)b->base, 4*KiB);
- 	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
+	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
 
 	p = &smpool;
 	ilock(p);
@@ -898,7 +898,7 @@ bgbfree(Block *b)
 	Bpool *p;
 
 	b->rp = b->wp = (uchar*)ROUNDUP((uintptr)b->base, 4*KiB);
- 	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
+	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
 
 	p = &bgpool;
 	ilock(p);
@@ -1157,7 +1157,7 @@ txproc(void *v)
 	c = e->ctlr;
 	tx = &c->tx;
 	for(;;){
- 		sleep(&c->txrendez, txcansleep, c);
+		sleep(&c->txrendez, txcansleep, c);
 		txcleanup(tx, gbit32(c->stats->txcnt));
 	}
 }

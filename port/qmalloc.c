@@ -336,7 +336,7 @@ mallocreadfmt(char* s, char* e)
 	Qlist *qlist;
 
 	p = seprint(s, e, "%lud/%lud kernel malloc\n",
-		(tailptr-tailbase)*sizeof(Header), 
+		(tailptr-tailbase)*sizeof(Header),
 		(tailnunits+tailptr-tailbase)*sizeof(Header));
 	p = seprint(p, e, "0/0 kernel draw\n"); // keep scripts happy
 

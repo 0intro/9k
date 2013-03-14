@@ -357,7 +357,7 @@ enum
 	SG_RONLY	= 0040,		/* Segment is read only */
 	SG_CEXEC	= 0100,		/* Detach at exec */
 };
-#define pagedout(s)	(s == nil)	/* only on demand, no swap */
+#define pagedout(s)	((s) == nil)	/* only on demand, no swap */
 
 #define SEGMAXSIZE	(SEGMAPSIZE*PTEMAPMEM)
 
@@ -744,7 +744,7 @@ struct Proc
 
 enum
 {
-	PROCMAX	= 100,			/* maximum number of processes */
+	PROCMAX	= 2000,			/* maximum number of processes */
 };
 
 struct Procalloc
@@ -758,12 +758,9 @@ struct Procalloc
 enum
 {
 	PRINTSIZE =	256,
-	MAXCRYPT = 	127,
 	NUMSIZE	=	12,		/* size of formatted number */
-	MB =		(1024*1024),
 	/* READSTR was 1000, which is way too small for usb's ctl file */
 	READSTR =	4000,		/* temporary buffer size for device reads */
-	WRITESTR =	256,		/* ctl file write max */
 };
 
 extern	char*	conffile;
@@ -959,18 +956,8 @@ enum
 	Qmsg		= (1<<1),	/* message stream */
 	Qclosed		= (1<<2),	/* queue has been closed/hungup */
 	Qflow		= (1<<3),	/* producer flow controlled */
-	Qcoalesce	= (1<<4),	/* coallesce packets on read */
+	Qcoalesce	= (1<<4),	/* coalesce packets on read */
 	Qkick		= (1<<5),	/* always call the kick routine after qwrite */
-};
-
-/* Fast system call struct  -- these are dynamically allocted in Proc struct */
-struct Fastcall {
-	int	scnum;
-	Chan*	c;
-	void	(*fun)(Ar0*, Fastcall*);
-	void*	buf;
-	int	n;
-	vlong	offset;
 };
 
 #define DEVDOTDOT -1

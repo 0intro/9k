@@ -692,7 +692,7 @@ long
 mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 {
 	Mnt *mnt;
- 	Mntrpc *r;
+	Mntrpc *r;
 	char *uba;
 	int cache;
 	ulong cnt, nr, nreq;

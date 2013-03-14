@@ -400,7 +400,7 @@ void
 rbfree(Block *b)
 {
 	b->rp = b->wp = (uchar*)ROUNDUP((uintptr)b->base, 4*KiB);
- 	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
+	b->flag &= ~(Bpktck|Btcpck|Budpck|Bipck);
 	ilock(&rblock);
 	b->next = rbpool;
 	rbpool = b;

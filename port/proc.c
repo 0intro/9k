@@ -134,7 +134,7 @@ sched(void)
 		|| palloc.Lock.p == up
 		|| procalloc.Lock.p == up){
 			up->delaysched++;
- 			delayedscheds++;
+			delayedscheds++;
 			return;
 		}
 		up->delaysched = 0;
