@@ -1,7 +1,6 @@
 /*
  * Intel Gigabit Ethernet PCI-Express Controllers.
- *	8256[36], 8257[12], 82573[ev]
- *	82575eb, 82576, 82577
+ *	8256[36], 8257[1-79]
  * Pretty basic, does not use many of the chip smarts.
  * The interrupt mitigation tuning for each chip variant
  * is probably different. The reset/initialisation
@@ -59,7 +58,7 @@ enum {
 	/* Receive */
 
 	Rctl		= 0x0100,	/* Control */
-	Ert		= 0x2008,	/* Early Receive Threshold (573[EVL] only) */
+	Ert		= 0x2008,	/* Early Receive Threshold (573[EVL], 579 only) */
 	Fcrtl		= 0x2160,	/* Flow Control RX Threshold Low */
 	Fcrth		= 0x2168,	/* Flow Control Rx Threshold High */
 	Psrctl		= 0x2170,	/* Packet Split Receive Control */
@@ -411,7 +410,7 @@ enum {
 
 enum {
 	Nrd		= 256,		/* power of two */
-	Ntd		= 128,		/* power of two */
+	Ntd		= 64,		/* power of two */
 	Nrb		= 1024,		/* private receive buffers per Ctlr */
 };
 
@@ -423,9 +422,11 @@ enum {
 	i82571,
 	i82572,
 	i82573,
+	i82574,
 	i82575,
 	i82576,
 	i82577,
+	i82579,
 };
 
 static int rbtab[] = {
@@ -439,6 +440,8 @@ static int rbtab[] = {
 	1514,
 	1514,
 	1514,
+	1514,
+	9018,
 };
 
 static char *tname[] = {
@@ -449,14 +452,16 @@ static char *tname[] = {
 	"i82571",
 	"i82572",
 	"i82573",
+	"i82574",
 	"i82575",
 	"i82576",
 	"i82577",
+	"i82579",
 };
 
 typedef struct Ctlr Ctlr;
 struct Ctlr {
-	u32int	port;
+	int	port;
 	Pcidev	*pcidev;
 	Ctlr	*next;
 	Ether	*edev;
@@ -614,6 +619,10 @@ i82563ifstat(Ether* edev, void* a, long n, ulong offset)
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
 	p = s = malloc(READSTR);
+	if(p == nil) {
+		qunlock(&ctlr->slock);
+		error(Enomem);
+	}
 	e = p + READSTR;
 
 	for(i = 0; i < Nstatistics; i++){
@@ -988,7 +997,7 @@ i82563rxinit(Ctlr* ctlr)
 	}
 	csr32w(ctlr, Rctl, rctl);
 
-	if(ctlr->type == i82573 || ctlr->type == i82577)
+	if(ctlr->type == i82573 || ctlr->type == i82577 || ctlr->type == i82579)
 		csr32w(ctlr, Ert, 1024/8);
 
 	if(ctlr->type == i82566 || ctlr->type == i82567)
@@ -1243,7 +1252,6 @@ i82563attach(Ether* edev)
 	char name[KNAMELEN];
 
 	ctlr = edev->ctlr;
-	ctlr->edev = edev;			/* point back to Ether* */
 	qlock(&ctlr->alock);
 	if(ctlr->attached){
 		qunlock(&ctlr->alock);
@@ -1280,11 +1288,12 @@ i82563attach(Ether* edev)
 
 	for(ctlr->nrb = 0; ctlr->nrb < Nrb; ctlr->nrb++){
 		if((bp = allocb(ctlr->rbsz + 4*KiB)) == nil)
-			break;
+			error(Enomem);
 		bp->free = i82563rbfree;
 		freeb(bp);
 	}
 
+	ctlr->edev = edev;			/* point back to Ether* */
 	ctlr->attached = 1;
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
@@ -1307,7 +1316,7 @@ i82563interrupt(Ureg*, void* arg)
 {
 	Ctlr *ctlr;
 	Ether *edev;
-	int icr, im;
+	int icr, im, i;
 
 	edev = arg;
 	ctlr = edev->ctlr;
@@ -1315,8 +1324,9 @@ i82563interrupt(Ureg*, void* arg)
 	ilock(&ctlr->imlock);
 	csr32w(ctlr, Imc, ~0);
 	im = ctlr->im;
-
-	for(icr = csr32r(ctlr, Icr); icr & ctlr->im; icr = csr32r(ctlr, Icr)){
+	i = 1000;			/* don't livelock */
+	for(icr = csr32r(ctlr, Icr); icr & ctlr->im && i-- > 0;
+	    icr = csr32r(ctlr, Icr)){
 		if(icr & Lsc){
 			im &= ~Lsc;
 			ctlr->lim = icr & Lsc;
@@ -1335,7 +1345,6 @@ i82563interrupt(Ureg*, void* arg)
 			wakeup(&ctlr->trendez);
 		}
 	}
-
 	ctlr->im = im;
 	csr32w(ctlr, Ims, im);
 	iunlock(&ctlr->imlock);
@@ -1347,7 +1356,8 @@ i82575interrupt(Ureg*, void *)
 {
 	Ctlr *ctlr;
 
-	for (ctlr = i82563ctlrhead; ctlr != nil; ctlr = ctlr->next)
+	for (ctlr = i82563ctlrhead; ctlr != nil && ctlr->edev != nil;
+	     ctlr = ctlr->next)
 		i82563interrupt(nil, ctlr->edev);
 }
 
@@ -1368,7 +1378,7 @@ i82563detach(Ctlr* ctlr)
 	delay(10);
 
 	r = csr32r(ctlr, Ctrl);
-	if(ctlr->type == i82566 || ctlr->type == i82567)
+	if(ctlr->type == i82566 || ctlr->type == i82567 || ctlr->type == i82579)
 		r |= Phyrst;
 	csr32w(ctlr, Ctrl, Devrst | r);
 	delay(1);
@@ -1512,7 +1522,7 @@ fload(Ctlr *c)
 	f.sz = f.reg32[Bfpr];
 	r = f.sz & 0x1fff;
 	if(csr32r(c, Eec) & (1<<22))
-		++r;
+		r += c->type == i82579? 16 : 1;
 	r <<= 12;
 
 	sum = 0;
@@ -1534,7 +1544,8 @@ i82563reset(Ctlr *ctlr)
 
 	if(i82563detach(ctlr))
 		return -1;
-	if(ctlr->type == i82566 || ctlr->type == i82567 || ctlr->type == i82577)
+	if(ctlr->type == i82566 || ctlr->type == i82567 ||
+	   ctlr->type == i82577 || ctlr->type == i82579)
 		r = fload(ctlr);
 	else
 		r = eeload(ctlr);
@@ -1571,7 +1582,8 @@ i82563reset(Ctlr *ctlr)
 	 */
 	csr32w(ctlr, Fcal, 0x00C28001);
 	csr32w(ctlr, Fcah, 0x0100);
-	csr32w(ctlr, Fct, 0x8808);
+	if(ctlr->type != i82579)
+		csr32w(ctlr, Fct, 0x8808);
 	csr32w(ctlr, Fcttv, 0x0100);
 
 	ctlr->fcrtl = ctlr->fcrth = 0;
@@ -1619,6 +1631,9 @@ i82563pci(void)
 		case 0x105e:
 			type = i82571;
 			break;
+		case 0x107d:		/* eb copper */
+		case 0x107e:		/* ei fiber */
+		case 0x107f:		/* ei */
 		case 0x10b9:		/* sic, 82572gi */
 			type = i82572;
 			break;
@@ -1627,9 +1642,9 @@ i82563pci(void)
 		case 0x109a:		/*  l */
 			type = i82573;
 			break;
-//		case 0x10d3:		/* l */
-//			type = i82574;	/* never heard of it */
-//			break;
+		case 0x10d3:		/* l */
+			type = i82574;
+			break;
 		case 0x10a7:	/* 82575eb: one of a pair of controllers */
 			type = i82575;
 			break;
@@ -1641,6 +1656,10 @@ i82563pci(void)
 		case 0x10ea:		/* 82577lm */
 			type = i82577;
 			break;
+		case 0x1502:		/* 82579lm */
+		case 0x1503:		/* 82579v */
+			type = i82579;
+			break;
 		}
 
 		io = p->mem[0].bar & ~0x0F;
@@ -1650,6 +1669,10 @@ i82563pci(void)
 			continue;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil) {
+			vunmap(mem, p->mem[0].size);
+			error(Enomem);
+		}
 		ctlr->port = io;
 		ctlr->pcidev = p;
 		ctlr->type = type;
@@ -1768,6 +1791,12 @@ i82575pnp(Ether *e)
 	return pnp(e, i82575);
 }
 
+static int
+i82579pnp(Ether *e)
+{
+	return pnp(e, i82579);
+}
+
 void
 ether82563link(void)
 {
@@ -1778,5 +1807,6 @@ ether82563link(void)
 	addethercard("i82572", i82572pnp);
 	addethercard("i82573", i82573pnp);
 	addethercard("i82575", i82575pnp);
+	addethercard("i82579", i82579pnp);
 	addethercard("igbepcie", anypnp);
 }
