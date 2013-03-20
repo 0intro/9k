@@ -36,18 +36,19 @@ enum {
 };
 
 #define	NUNITS(n)	(HOWMANY(n, Unitsz) + 1)
-#define	NQUICK		((512/Unitsz)+1)
+#define	NQUICK		((4096/Unitsz)+1)
 
 static	Qlist	quicklist[NQUICK+1];
 static	Header	misclist;
 static	Header	*rover;
 static	unsigned tailsize;
-static	unsigned tailnunits;
+static	unsigned availnunits;
 static	Header	*tailbase;
 static	Header	*tailptr;
 static	Header	checkval;
 static	int	morecore(unsigned);
 
+static	void*	qmalloc(usize);
 static	void	qfreeinternal(void*);
 static	int	qstats[32];
 
@@ -76,8 +77,11 @@ qmallocalign(usize nbytes, uintptr align, long offset, usize span)
 	if(nbytes == 0 || offset != 0 || span != 0)
 		return nil;
 
-	if(!ISPOWEROF2(align) || align < sizeof(Header))
-		return nil;
+	if(!ISPOWEROF2(align))
+		panic("qmallocalign");
+
+	if(align <= sizeof(Align))
+		return qmalloc(nbytes);
 
 	qstats[5]++;
 	nunits = NUNITS(nbytes);
@@ -271,12 +275,12 @@ qfreeinternal(void* ap)
 
 	p = (Header*)ap - 1;
 	if((nunits = p->s.size) == 0 || p->s.next != &checkval)
-		panic("malloc: corrupt allocation arena\n");
+		panic("malloc: corrupt allocation arena");
 	if(tailptr != nil && p+nunits == tailptr) {
 		/* block before tail */
 		tailptr = p;
 		tailsize += nunits;
-		qstats[18]++;
+		qstats[17]++;
 		return;
 	}
 	if(nunits <= NQUICK) {
@@ -311,22 +315,6 @@ qfreeinternal(void* ap)
 	rover = q;
 }
 
-ulong
-msize(void* ap)
-{
-	Header *p;
-	uint nunits;
-
-	if(ap == nil)
-		return 0;
-
-	p = (Header*)ap - 1;
-	if((nunits = p->s.size) == 0 || p->s.next != &checkval)
-		panic("malloc: corrupt allocation arena\n");
-
-	return (nunits-1) * sizeof(Header);
-}
-
 static void
 mallocreadfmt(char* s, char* e)
 {
@@ -335,9 +323,10 @@ mallocreadfmt(char* s, char* e)
 	int i, n, t;
 	Qlist *qlist;
 
-	p = seprint(s, e, "%lud/%lud kernel malloc\n",
+	p = s;
+	p = seprint(p, e, "%lud/%lud kernel malloc\n",
 		(tailptr-tailbase)*sizeof(Header),
-		(tailnunits+tailptr-tailbase)*sizeof(Header));
+		(tailsize+availnunits + tailptr-tailbase)*sizeof(Header));
 	p = seprint(p, e, "0/0 kernel draw\n"); // keep scripts happy
 
 	t = 0;
@@ -371,8 +360,6 @@ mallocreadfmt(char* s, char* e)
 		p = seprint(p, e, "rover: %d blocks %ud bytes total\n",
 			i, t*sizeof(Header));
 	}
-	p = seprint(p, e, "total allocated %lud, %ud remaining\n",
-		(tailptr-tailbase)*sizeof(Header), tailnunits*sizeof(Header));
 
 	for(i = 0; i < nelem(qstats); i++){
 		if(qstats[i] == 0)
@@ -389,8 +376,13 @@ mallocreadsummary(Chan*, void *a, long n, long offset)
 	char *alloc;
 
 	alloc = malloc(16*READSTR);
+	if(waserror()){
+		free(alloc);
+		nexterror();
+	}
 	mallocreadfmt(alloc, alloc+16*READSTR);
 	n = readstr(offset, a, n, alloc);
+	poperror();
 	free(alloc);
 
 	return n;
@@ -434,7 +426,8 @@ mallocsummary(void)
 			i, t*sizeof(Header));
 	}
 	print("total allocated %lud, %ud remaining\n",
-		(tailptr-tailbase)*sizeof(Header), tailnunits*sizeof(Header));
+		(tailptr-tailbase)*sizeof(Header),
+		(tailsize+availnunits)*sizeof(Header));
 
 	for(i = 0; i < nelem(qstats); i++){
 		if(qstats[i] == 0)
@@ -478,6 +471,13 @@ mallocalign(ulong nbytes, ulong align, long offset, ulong span)
 {
 	void *v;
 
+	if(span != 0 && align <= span){
+		if(nbytes > span)
+			return nil;
+		align = span;
+		span = 0;
+	}
+
 	/*
 	 * Should this memset or should it be left to the caller?
 	 */
@@ -503,10 +503,10 @@ void*
 realloc(void* ap, ulong size)
 {
 	void *v;
-	int delta;
 	Header *p;
 	ulong osize;
 	uint nunits, ounits;
+	int delta;
 
 	/*
 	 * Easy stuff:
@@ -528,7 +528,7 @@ realloc(void* ap, ulong size)
 
 	p = (Header*)ap - 1;
 	if((ounits = p->s.size) == 0 || p->s.next != &checkval)
-		panic("realloc: corrupt allocation arena\n");
+		panic("realloc: corrupt allocation arena");
 
 	if((nunits = NUNITS(size)) == ounits)
 		return ap;
@@ -536,12 +536,12 @@ realloc(void* ap, ulong size)
 	/*
 	 * Slightly harder:
 	 * if this allocation abuts the tail, try to just
-	 * adjust the tailptr; if shrinking just adjust, if growing
-	 * first check there is enough room after the tail.
+	 * adjust the tailptr.
 	 */
 	MLOCK;
 	if(tailptr != nil && p+ounits == tailptr){
-		if((delta = nunits-ounits) < 0 || tailsize >= delta){
+		delta = nunits-ounits;
+		if(delta < 0 || tailsize >= delta){
 			p->s.size = nunits;
 			tailsize -= delta;
 			tailptr += delta;
@@ -589,8 +589,8 @@ mallocinit(void)
 
 	tailbase = UINT2PTR(sys->vmunused);
 	tailptr = tailbase;
-	tailnunits = HOWMANY(sys->vmend - sys->vmunused, Unitsz);
-	print("base %#p ptr %#p nunints %ud\n", tailbase, tailptr, tailnunits);
+	availnunits = HOWMANY(sys->vmend - sys->vmunused, Unitsz);
+	print("base %#p ptr %#p nunits %ud\n", tailbase, tailptr, availnunits);
 }
 
 static int
@@ -601,11 +601,11 @@ morecore(uint nunits)
 	 * Pump it up when you don't really need it.
 	 * Pump it up until you can feel it.
 	 */
-	if(nunits > tailnunits)
+	if(nunits > availnunits)
 		return 0;
-	if(tailnunits >= NUNITS(128*KiB))
+	if(availnunits >= NUNITS(128*KiB))
 		nunits = NUNITS(128*KiB);
-	tailnunits -= nunits;
+	availnunits -= nunits;
 
 	return nunits;
 }

@@ -44,8 +44,15 @@
 /*
  *  Address spaces
  *
- *  User is at ??
- *  Kernel is at ??
+ *  Kernel gets loaded at 1*MiB+64*KiB;
+ *  Memory from 0 to 1MiB is not used for other things;
+ *  1*MiB to 1MiB+64KiB is used to hold the Sys and
+ *  Mach0 datastructures.
+ *
+ *  User is at low addresses; kernel vm starts at KZERO;
+ *  KSEG0 maps the first TMFM bytes, one to one, (i.e KZERO);
+ *  KSEG1 maps the PML4 into itself;
+ *  KSEG2 maps all remaining physical memory.
  */
 #define UTZERO		(0+2*MiB)		/* first address in user text */
 #define UTROUND(t)	ROUNDUP((t), 2*MiB)

@@ -122,9 +122,9 @@ mntversion(Chan *c, u32int msize, char *version, usize returnlen)
 	if(v == nil || v[0] == '\0')
 		v = VERSION9P;
 
-	/* validity */
-	if(msize < 0)
-		error("bad iounit in version call");
+	///* validity */
+	//if(msize < 0)	pointless if msize unsigned, but but should it be?
+	//	error("bad iounit in version call");
 	if(strncmp(v, VERSION9P, strlen(VERSION9P)) != 0)
 		error("bad 9P version specification");
 

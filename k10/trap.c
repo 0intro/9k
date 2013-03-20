@@ -336,7 +336,9 @@ trap(Ureg* ureg)
 		panic("unknown trap/intr: %d\n", vno);
 #else
 		iprint("vno %d: buggeration @ %#p...\n", vno, ureg->ip);
-		i8042reset();
+		/* We get this one and didn't track it down yet */
+		if(vno != 39)
+			i8042reset();
 #endif /* notdef */
 	}
 	splhi();

@@ -57,7 +57,6 @@ extern	char*	utfrune(char*, long);
 extern	void*	malloc(ulong);
 extern	void*	mallocz(ulong, int);
 extern	void	free(void*);
-extern	ulong	msize(void*);
 extern	void*	mallocalign(ulong, ulong, long, ulong);
 extern	void*	realloc(void*, ulong);
 extern	void	setmalloctag(void*, ulong);

@@ -990,7 +990,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 			"%llud memory\n"
 			"%d pagesize\n"
 			"%llud kernel\n"
-			"%lud/%lud user\n",
+			"%lud/%lud user\n"
+			"0/0 swap\n",		/* keep old 9 scripts happy */
 			sys->pmoccupied,
 			PGSZ,
 			ROUNDUP(sys->vmend - KTZERO, PGSZ)/PGSZ,

@@ -73,6 +73,7 @@ i8259.$O:	io.h
 kbd.$O:		../port/error.h io.h
 pci.$O:		io.h
 sdaoe.$O:	../port/error.h ../port/netif.h ../port/sd.h
+sdiahci.$O:	../386/ahci.h
 sdaoe.$O:	../386/aoe.h etherif.h io.h
 sdscsi.$O:	../port/error.h
 
