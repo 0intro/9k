@@ -64,7 +64,7 @@ boot cpu
 	tcp
 
 rootdir
-	bootk8cpu.out boot
+	bootk10cpu.out boot
 	/amd64/bin/auth/factotum factotum
 	/amd64/bin/ip/ipconfig ipconfig
 
@@ -91,7 +91,6 @@ dbgflg
 	ioapic		'I'
 	mp		'M'
 	arch		'V'
-	archk8		'V'
 	archk10		'V'
 	sysproc		'E'
 	main		'x'
@@ -107,7 +106,7 @@ amd64 +dev
 	l64fpu
 	l64cpuid
 	arch
-	archk8
+	archk10
 	asm
 	cga
 	crap

@@ -45,10 +45,16 @@ BEGIN{
 			s = "LIB=" s;
 		o = o s "\n";
 	}
-	if((!oargc || ("-mkport" in oargv) ) && ("port" in section)){
+	if((!oargc || ("-mkport" in oargv)) && ("port" in section)){
 		s = mkport();
 		if(!("-mkport" in oargv) || (oargc > 1))
 			s = "PORT=" s;
+		o = o s "\n";
+	}
+	if((!oargc || ("-mklinux" in oargv)) && ("linux" in section)){
+		s = mklinux();
+		if(!("-mklinux" in oargv) || (oargc > 1))
+			s = "LINUX=" s;
 		o = o s "\n";
 	}
 	if("dbgflg" in section){
@@ -408,7 +414,7 @@ function mkdevc(		a, d, i, m, n, s, t, u, name, cname){
 		s = s "void (*mfcupdate)(Chan*, uchar*, int, vlong) = nil;\n";
 		s = s "void (*mfcwrite)(Chan*, uchar*, int, vlong) = nil;\n\n";
 	}
-	if(!("rdb" in misc)){
+	if(!("rdb" in m)){
 		s = s "void\n";
 		s = s "rdb(void)\n";
 		s = s "{\n";
@@ -501,6 +507,12 @@ function mkrules(dir, exists, ameta, cmeta, flags,		f, i, s, t){
 		s = s "\t" t " -D'_DBGC_='" dbgc[$0] "'' " dir "/" f "\n";
 	}
 	return s;
+}
+
+function mklinux(					array){
+	arrayify(array, "linux", "", ".$O", 1);
+
+	return listolate(array, " ");
 }
 
 function mkport(					array){

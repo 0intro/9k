@@ -199,7 +199,7 @@ extern void ioapicintrinit(int, int, int, int, u32int);
 extern void ioapiconline(void);
 
 /*
- * archk8.c
+ * archk10.c
  */
 extern void millidelay(int);
 

@@ -9,7 +9,7 @@ rootdir=/root
 rootspec=''
 rootsrv=boot
 
-beetroot=k8root.rr
+beetroot=k10root.rr
 authentication='nvram=/boot/adm/nvram auth/factotum -sfactotum -S'	# -a ...
 # test xyzip=(0 0 0 104.9.33)
 # test fsaddr='tcp!135.$xyzip(4)^!564'

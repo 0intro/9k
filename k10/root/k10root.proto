@@ -2,7 +2,7 @@ adm d775 sys sys /tmp/empty
 	nvram 400 sys sys ./root/nvram
 	timezone d775 sys sys /tmp/empty
 lib d775 sys sys /tmp/empty
-	namespace 664 sys sys ./root/k8root.namespace
+	namespace 664 sys sys ./root/k10root.namespace
 	profile 664 sys sys ../root/profile
 mnt d775 sys sys /tmp/empty
 	cons d775 sys sys /tmp/empty
@@ -50,7 +50,7 @@ usr d775 sys sys /tmp/empty
 
 amd64 d775 sys sys /tmp/empty
 	bin d775 sys sys /tmp/empty
-		# used by k8cpu.rc to get off the ground
+		# used by k10cpu.rc to get off the ground
 		bind 775 sys sys
 		echo 775 sys sys
 		rc 775 sys sys

@@ -1,5 +1,6 @@
-CONF=k8cpu
-CONFLIST=k8cpu k8root
+ARCH=k10
+CONF=${ARCH}cpu
+CONFLIST=${ARCH}aoe ${ARCH}cpu ${ARCH}root
 
 objtype=amd64
 </$objtype/mkfile
@@ -19,31 +20,18 @@ $p$CONF:	$CONF.c $OBJ $LIB
 #	$LD -o $target.elf -H5 -8 -T0xfffffffff0110000 -l $OBJ $CONF.$O $LIB
 	size $target
 
-$p$CONF.gz:	$p$CONF
-	strip -o /fd/1 $p$CONF | gzip -9 > $p$CONF.gz
-
-install:V:	$p$CONF $p$CONF.gz
-	#cp $p$CONF $p$CONF.gz /$objtype/
-	#import lookout / /n/lookout && cp $p$CONF $p$CONF.gz /n/lookout/$objtype/
-
-init.out:	init9.$O initcode.$O /$objtype/lib/libc.a
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O -lc
-
 l32p.$O:	${objtype}l.h
 l64idt.$O:	${objtype}l.h
 l64syscall.$O:	${objtype}l.h
 l64v.$O:	${objtype}l.h
 lsipi.$O:	${objtype}l.h
 
-${objtype}l.h:	$objtype.h
-	rc ../mk/mkenum $objtype.h > $target
-
 apic.$O:	apic.h io.h
 devarch.$O:	../port/error.h /$objtype/include/ureg.h
 fpu.$O:		amd64.h
 fpu.$O:		/$objtype/include/ureg.h
 ioapic.$O:	apic.h io.h
-main.$O:	/sys/include/pool.h init.h
+main.$O:	init.h
 memory.$O:	amd64.h
 mmu.$O:		amd64.h
 mp.$O:		apic.h
@@ -79,6 +67,9 @@ sdscsi.$O:	../port/error.h
 
 random.$O:	../port/error.h
 
+${objtype}l.h:DQ:	$objtype.h
+	rc ../mk/mkenum $objtype.h > $target
+
 sipi.h:		lsipi.$O
 	$LD -o lsipi.out -T0xfffffffff0003000 -R4 -l -s $prereq
 	{echo 'uchar sipihandler[]={'
@@ -87,3 +78,14 @@ sipi.h:		lsipi.$O
 	     -e '1,2d' -e '3s/^ .. .. .. .. .. .. .. ..//'	\
 	     -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > $target
+
+$CONF.rr:	../mk/mkrr $CONF ./root/$CONF.proto
+	../mk/mkrr $CONF ./root/$CONF.proto
+
+$CONF.rr:	./root/$O.cpu
+
+$ARCH.clean:V:
+	rm -f $ARCH^*.c [9bz]$ARCH^* [9bz]$ARCH^*.gz boot$ARCH^*.*
+
+$ARCH.nuke:V:
+	rm -f $objtype^l.h sipi.h
