@@ -369,7 +369,7 @@ vmap(uintptr pa, usize size)
 	uintptr va;
 	usize o, sz;
 
-	print("vmap(%#p, %lud)\n", pa, size);
+	DBG("vmap(%#p, %lud)\n", pa, size);
 
 	if(m->machno != 0)
 		panic("vmap");
@@ -400,7 +400,7 @@ vmap(uintptr pa, usize size)
 	sz = ROUNDUP(size+o, PGSZ);
 
 	if(pa == 0){
-		print("vmap(0, %lud) pc=%#p\n", size, getcallerpc(&pa));
+		DBG("vmap(0, %lud) pc=%#p\n", size, getcallerpc(&pa));
 		return nil;
 	}
 	ilock(&vmaplock);
@@ -437,7 +437,7 @@ vunmap(void* v, usize size)
 	 * resources used for the allocation (e.g. page table
 	 * pages).
 	 */
-	print("vunmap(%#p, %lud)\n", v, size);
+	DBG("vunmap(%#p, %lud)\n", v, size);
 }
 
 int

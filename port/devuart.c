@@ -726,7 +726,7 @@ uartclock(void)
 {
 	Uart *p;
 
-	lock(&uartalloc);
+	ilock(&uartalloc);
 	for(p = uartalloc.elist; p; p = p->elist){
 
 		if(p->phys->poll != nil)
@@ -756,7 +756,7 @@ uartclock(void)
 			iunlock(&p->tlock);
 		}
 	}
-	unlock(&uartalloc);
+	iunlock(&uartalloc);
 }
 
 /*

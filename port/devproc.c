@@ -1407,7 +1407,7 @@ procctlreq(Proc *p, char *va, int n)
 		p->hang = 0;
 		break;
 	case CMnoswap:
-		p->noswap = 1;
+		/*retired*/
 		break;
 	case CMpri:
 		pri = atoi(cb->f[1]);

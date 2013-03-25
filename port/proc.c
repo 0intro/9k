@@ -604,7 +604,6 @@ newproc(void)
 	p->notepending = 0;
 	p->ureg = 0;
 	p->privatemem = 0;
-	p->noswap = 0;
 	p->errstr = p->errbuf0;
 	p->syserrstr = p->errbuf1;
 	p->errbuf0[0] = '\0';
@@ -1320,7 +1319,6 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->psstate = 0;
 	p->procmode = 0640;
 	p->kp = 1;
-	p->noswap = 1;
 
 	p->scallnr = up->scallnr;
 	memmove(p->arg, up->arg, sizeof(up->arg));

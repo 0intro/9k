@@ -672,7 +672,6 @@ struct Proc
 	Proc	*palarm;	/* Next alarm time */
 	ulong	alarm;		/* Time of call */
 	int	newtlb;		/* Pager has changed my pte's, I must flush */
-	int	noswap;		/* process is not swappable */
 
 	uintptr	rendtag;	/* Tag for rendezvous */
 	uintptr	rendval;	/* Value for rendezvous */
@@ -778,7 +777,6 @@ extern	Physseg	physseg[];
 extern	Procalloc	procalloc;
 extern	uint	qiomaxatomic;
 extern	char*	statename[];
-extern	Image	swapimage;
 extern	char*	sysname;
 extern struct {
 	char*	n;
