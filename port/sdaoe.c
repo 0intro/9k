@@ -13,7 +13,7 @@
 #include "../port/sd.h"
 
 #include "etherif.h"
-#include "aoe.h"
+#include "../port/aoe.h"
 
 extern	char	Echange[];
 extern	char	Enotup[];
@@ -23,6 +23,9 @@ extern	char	Enotup[];
 enum {
 	Nctlr	= 32,
 	Maxpath	= 128,
+
+	Probeintvl	= 100,		/* ms. between probes */
+	Probemax	= 20,		/* max probes */
 };
 
 enum {
@@ -68,32 +71,13 @@ struct Ctlr{
 	char	ident[0x100];
 };
 
+void	aoeidmove(char *p, ushort *a, unsigned n);
+
 static	Lock	ctlrlock;
 static	Ctlr	*head;
 static	Ctlr	*tail;
 
 SDifc sdaoeifc;
-
-static void
-idmove(char *p, ushort *a, int n)
-{
-	int i;
-	char *op, *e;
-
-	op = p;
-	for(i = 0; i < n/2; i++){
-		*p++ = a[i] >> 8;
-		*p++ = a[i];
-	}
-	*p = 0;
-	while(p > op && *--p == ' ')
-		*p = 0;
-	e = p;
-	p = op;
-	while(*p == ' ')
-		p++;
-	memmove(op, p, n - (e - p));
-}
 
 static ushort
 gbit16(void *a)
@@ -104,10 +88,10 @@ gbit16(void *a)
 	return i[1] << 8 | i[0];
 }
 
-static u32int
+static ulong
 gbit32(void *a)
 {
-	u32int j;
+	ulong j;
 	uchar *i;
 
 	i = a;
@@ -156,9 +140,9 @@ identify(Ctlr *c, ushort *id)
 			c->feat |= Dnop;
 	}
 
-	idmove(c->serial, id+10, 20);
-	idmove(c->firmware, id+23, 8);
-	idmove(c->model, id+27, 40);
+	aoeidmove(c->serial, id+10, 20);
+	aoeidmove(c->firmware, id+23, 8);
+	aoeidmove(c->model, id+27, 40);
 
 	if((osectors == 0 || osectors != s) &&
 	    memcmp(oserial, c->serial, sizeof oserial) != 0){
@@ -266,6 +250,7 @@ delctlr(Ctlr *c)
 	free(x);
 }
 
+/* don't call aoeprobe from within a loop; it loops internally retrying open. */
 static SDev*
 aoeprobe(char *path, SDev *s)
 {
@@ -290,24 +275,21 @@ aoeprobe(char *path, SDev *s)
 	poperror();
 	cclose(c);
 
-	for(i = 0;; i += 200){
-		if(i > 8000 || waserror())
-			error(Etimedout);
-		tsleep(&up->sleep, return0, 0, 200);
-		poperror();
-
+	for(i = 0; i < Probemax; i++){
+		tsleep(&up->sleep, return0, 0, Probeintvl);
 		uprint("%s/ident", path);
-		if(waserror())
-			continue;
-		c = namec(up->genbuf, Aopen, OREAD, 0);
-		poperror();
-		cclose(c);
-
-		ctlr = newctlr(path);
-		break;
+		if(!waserror()) {
+			c = namec(up->genbuf, Aopen, OREAD, 0);
+			poperror();
+			cclose(c);
+			break;
+		}
 	}
-
-	if(s == nil && (s = malloc(sizeof *s)) == nil)
+	if(i >= Probemax)
+		error(Etimedout);
+	uprint("%s/ident", path);
+	ctlr = newctlr(path);
+	if(ctlr == nil || s == nil && (s = malloc(sizeof *s)) == nil)
 		return nil;
 	s->ctlr = ctlr;
 	s->ifc = &sdaoeifc;
@@ -321,14 +303,9 @@ static int 	nprobe;
 static int
 pnpprobeid(char *s)
 {
-	int id;
-
 	if(strlen(s) < 2)
 		return 0;
-	id = 'e';
-	if(s[1] == '!')
-		id = s[0];
-	return id;
+	return s[1] == '!'? s[0]: 'e';
 }
 
 static SDev*
@@ -366,7 +343,7 @@ aoepnp(void)
 static Ctlr*
 pnpprobe(SDev *sd)
 {
-	int j;
+	ulong start;
 	char *p;
 	static int i;
 
@@ -378,20 +355,17 @@ pnpprobe(SDev *sd)
 	if(p[1] == '!')
 		p += 2;
 
-	for(j = 0;; j += 200){
-		if(j > 8000){
-			print("#æ: pnpprobe: %s: %s\n", probef[i-1], up->errstr);
-			return 0;
-		}
-		if(waserror()){
-			tsleep(&up->sleep, return0, 0, 200);
-			continue;
-		}
-		sd = aoeprobe(p, sd);
-		poperror();
-		break;
+	start = TK2MS(sys->ticks);
+	if(waserror()){
+		print("#æ: pnpprobe failed in %lud ms: %s: %s\n",
+			TK2MS(sys->ticks) - start, probef[i-1],
+			up->errstr);
+		return nil;
 	}
-	print("#æ: pnpprobe establishes %sin %dms\n", probef[i-1], j);
+	sd = aoeprobe(p, sd);			/* does a round of probing */
+	poperror();
+	print("#æ: pnpprobe established %s in %lud ms\n",
+		probef[i-1], TK2MS(sys->ticks) - start);
 	return sd->ctlr;
 }
 
@@ -502,7 +476,7 @@ aoerio(SDreq *r)
 		rio = c->c->dev->write;
 		break;
 	default:
-		print("%s: bad cmd 0x%.2ux\n", name, cmd[0]);
+		print("%s: bad cmd %#.2ux\n", name, cmd[0]);
 		r->status = SDcheck;
 		return SDcheck;
 	}
@@ -548,13 +522,11 @@ static char *smarttab[] = {
 static char *
 pflag(char *s, char *e, uchar f)
 {
-	uchar i, m;
+	uchar i;
 
-	for(i = 0; i < 8; i++){
-		m = 1 << i;
-		if(f & m)
+	for(i = 0; i < 8; i++)
+		if(f & (1 << i))
 			s = seprint(s, e, "%s ", flagname[i]);
-	}
 	return seprint(s, e, "\n");
 }
 
@@ -617,7 +589,9 @@ aoertopctl(SDev *s, char *p, char *e)
 {
 	Ctlr *c;
 
-	c = s->ctlr;
+	if(s == nil || (c = s->ctlr) == nil)
+		return p;
+
 	return seprint(p, e, "%s aoe %s\n", s->name, c->path);
 }
 

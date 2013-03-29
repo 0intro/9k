@@ -2048,7 +2048,7 @@ iapnp(void)
 		c->physio = (uchar *)io;
 		c->mmio = vmap(io, p->mem[Abar].size);
 		if(c->mmio == 0){
-			print("ahci: %s: address %#luX in use did=%#x\n",
+			print("ahci: %s: address %#lux in use did=%#ux\n",
 				Tname(c), io, p->did);
 			continue;
 		}

@@ -21,7 +21,7 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name)
 	io = p->mem[barno].bar & ~0x01;
 	snprint(buf, sizeof(buf), "%s%d", pciphysuart.name, ctlrno);
 	if(ioalloc(io, p->mem[barno].size, 0, buf) < 0){
-		print("uartpci: I/O 0x%uX in use\n", io);
+		print("uartpci: I/O %#ux in use\n", io);
 		return nil;
 	}
 
@@ -34,7 +34,7 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name)
 			continue;
 
 		uart->regs = ctlr;
-		snprint(buf, sizeof(buf), "%s.%8.8uX", name, p->tbdf);
+		snprint(buf, sizeof(buf), "%s.%8.8ux", name, p->tbdf);
 		kstrdup(&uart->name, buf);
 		uart->freq = freq;
 		uart->phys = &i8250physuart;

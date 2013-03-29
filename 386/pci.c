@@ -182,7 +182,7 @@ pcibusmap(Pcidev *root, ulong *pmema, ulong *pioa, int wrreg)
 	ioa = *pioa;
 	mema = *pmema;
 
-	DBG("pcibusmap wr=%d %T mem=%luX io=%luX\n",
+	DBG("pcibusmap wr=%d %T mem=%#lux io=%#lux\n",
 		wrreg, root->tbdf, mema, ioa);
 
 	ntb = 0;
@@ -631,33 +631,51 @@ struct Bridge
 };
 
 static Bridge southbridges[] = {
-	{ 0x8086, 0x122e, pIIxget, pIIxset },	// Intel 82371FB
-	{ 0x8086, 0x1234, pIIxget, pIIxset },	// Intel 82371MX
-	{ 0x8086, 0x7000, pIIxget, pIIxset },	// Intel 82371SB
-	{ 0x8086, 0x7110, pIIxget, pIIxset },	// Intel 82371AB
-	{ 0x8086, 0x7198, pIIxget, pIIxset },	// Intel 82443MX (fn 1)
-	{ 0x8086, 0x2410, pIIxget, pIIxset },	// Intel 82801AA
-	{ 0x8086, 0x2420, pIIxget, pIIxset },	// Intel 82801AB
-	{ 0x8086, 0x2440, pIIxget, pIIxset },	// Intel 82801BA
-	{ 0x8086, 0x244c, pIIxget, pIIxset },	// Intel 82801BAM
-	{ 0x8086, 0x248c, pIIxget, pIIxset },	// Intel 82801CAM
-	{ 0x8086, 0x24cc, pIIxget, pIIxset },	// Intel 82801DBM
-	{ 0x8086, 0x24d0, pIIxget, pIIxset },	// Intel 82801EB
-	{ 0x8086, 0x2640, pIIxget, pIIxset },	// Intel 82801FB
-	{ 0x1106, 0x0586, viaget, viaset },	// Viatech 82C586
-	{ 0x1106, 0x0596, viaget, viaset },	// Viatech 82C596
-	{ 0x1106, 0x0686, viaget, viaset },	// Viatech 82C686
-	{ 0x1106, 0x3227, viaget, viaset },	// Viatech VT8237
-	{ 0x1045, 0xc700, optiget, optiset },	// Opti 82C700
-	{ 0x10b9, 0x1533, aliget, aliset },	// Al M1533
-	{ 0x1039, 0x0008, pIIxget, pIIxset },	// SI 503
-	{ 0x1039, 0x0496, pIIxget, pIIxset },	// SI 496
-	{ 0x1078, 0x0100, cyrixget, cyrixset },	// Cyrix 5530 Legacy
+	{ 0x8086, 0x122e, pIIxget, pIIxset },	/* Intel 82371FB */
+	{ 0x8086, 0x1234, pIIxget, pIIxset },	/* Intel 82371MX */
+	{ 0x8086, 0x7000, pIIxget, pIIxset },	/* Intel 82371SB */
+	{ 0x8086, 0x7110, pIIxget, pIIxset },	/* Intel 82371AB */
+	{ 0x8086, 0x7198, pIIxget, pIIxset },	/* Intel 82443MX (fn 1) */
+	{ 0x8086, 0x2410, pIIxget, pIIxset },	/* Intel 82801AA */
+	{ 0x8086, 0x2420, pIIxget, pIIxset },	/* Intel 82801AB */
+	{ 0x8086, 0x2440, pIIxget, pIIxset },	/* Intel 82801BA */
+	{ 0x8086, 0x2448, pIIxget, pIIxset },	/* Intel 82801BAM/CAM/DBM */
+	{ 0x8086, 0x244c, pIIxget, pIIxset },	/* Intel 82801BAM */
+	{ 0x8086, 0x244e, pIIxget, pIIxset },	/* Intel 82801 */
+	{ 0x8086, 0x2480, pIIxget, pIIxset },	/* Intel 82801CA */
+	{ 0x8086, 0x248c, pIIxget, pIIxset },	/* Intel 82801CAM */
+	{ 0x8086, 0x24c0, pIIxget, pIIxset },	/* Intel 82801DBL */
+	{ 0x8086, 0x24cc, pIIxget, pIIxset },	/* Intel 82801DBM */
+	{ 0x8086, 0x24d0, pIIxget, pIIxset },	/* Intel 82801EB */
+	{ 0x8086, 0x25a1, pIIxget, pIIxset },	/* Intel 6300ESB */
+	{ 0x8086, 0x2640, pIIxget, pIIxset },	/* Intel 82801FB */
+	{ 0x8086, 0x2641, pIIxget, pIIxset },	/* Intel 82801FBM */
+	{ 0x8086, 0x27b8, pIIxget, pIIxset },	/* Intel 82801GB */
+	{ 0x8086, 0x27b9, pIIxget, pIIxset },	/* Intel 82801GBM */
+	{ 0x8086, 0x27bd, pIIxget, pIIxset },	/* Intel 82801GB/GR */
+	{ 0x8086, 0x3a16, pIIxget, pIIxset },	/* Intel 82801JIR */
+	{ 0x8086, 0x3a40, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x3a42, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x3a48, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x2916, pIIxget, pIIxset },	/* Intel 82801? */
+	{ 0x8086, 0x1c02, pIIxget, pIIxset },	/* Intel 6 Series/C200 */
+	{ 0x1106, 0x0586, viaget, viaset },	/* Viatech 82C586 */
+	{ 0x1106, 0x0596, viaget, viaset },	/* Viatech 82C596 */
+	{ 0x1106, 0x0686, viaget, viaset },	/* Viatech 82C686 */
+	{ 0x1106, 0x3227, viaget, viaset },	/* Viatech VT8237 */
+	{ 0x1045, 0xc700, optiget, optiset },	/* Opti 82C700 */
+	{ 0x10b9, 0x1533, aliget, aliset },	/* Al M1533 */
+	{ 0x1039, 0x0008, pIIxget, pIIxset },	/* SI 503 */
+	{ 0x1039, 0x0496, pIIxget, pIIxset },	/* SI 496 */
+	{ 0x1078, 0x0100, cyrixget, cyrixset },	/* Cyrix 5530 Legacy */
 
-	{ 0x1022, 0x746B, nil, nil },		// AMD 8111
-	{ 0x10DE, 0x00D1, nil, nil },		// NVIDIA nForce 3
-	{ 0x1166, 0x0200, nil, nil },		// ServerWorks ServerSet III LE
-	{ 0x1002, 0x4377, nil, nil },		// ATI Radeon Xpress 200M
+	{ 0x1022, 0x746B, nil, nil },		/* AMD 8111 */
+	{ 0x10DE, 0x00D1, nil, nil },		/* NVIDIA nForce 3 */
+	{ 0x10DE, 0x00E0, nil, nil },		/* NVIDIA nForce 3 250 Series */
+	{ 0x10DE, 0x00E1, nil, nil },		/* NVIDIA nForce 3 250 Series */
+	{ 0x1166, 0x0200, nil, nil },		/* ServerWorks ServerSet III LE */
+	{ 0x1002, 0x4377, nil, nil },		/* ATI Radeon Xpress 200M */
+	{ 0x1002, 0x4372, nil, nil },		/* ATI SB400 */
 };
 
 typedef struct Slot Slot;
@@ -705,8 +723,8 @@ pcirouting(void)
 
 	r = (Router *)p;
 
-	// print("PCI interrupt routing table version %d.%d at %.6uX\n",
-	// 	r->version[0], r->version[1], (ulong)r & 0xfffff);
+	print("PCI interrupt routing table version %d.%d at %#p\n",
+		r->version[0], r->version[1], r);
 
 	tbdf = (BusPCI << 24)|(r->bus << 16)|(r->devfn << 8);
 	sbpci = pcimatchtbdf(tbdf);
@@ -720,7 +738,7 @@ pcirouting(void)
 			break;
 
 	if(i == nelem(southbridges)) {
-		print("pcirouting: ignoring south bridge %T %.4uX/%.4uX\n", tbdf, sbpci->vid, sbpci->did);
+		print("pcirouting: ignoring south bridge %T %.4ux/%.4ux\n", tbdf, sbpci->vid, sbpci->did);
 		return;
 	}
 	southbridge = &southbridges[i];
@@ -731,10 +749,10 @@ pcirouting(void)
 
 	size = (r->size[1] << 8)|r->size[0];
 	for(e = (Slot *)&r[1]; (uchar *)e < p + size; e++) {
-		// print("%.2uX/%.2uX %.2uX: ", e->bus, e->dev, e->slot);
+		// print("%.2ux/%.2ux %.2ux: ", e->bus, e->dev, e->slot);
 		// for (i = 0; i != 4; i++) {
 		// 	uchar *m = &e->maps[i * 3];
-		// 	print("[%d] %.2uX %.4uX ",
+		// 	print("[%d] %.2ux %.4ux ",
 		// 		i, m[0], (m[2] << 8)|m[1]);
 		// }
 		// print("\n");

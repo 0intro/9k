@@ -13,6 +13,7 @@
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
+#include "../port/error.h"
 
 #include "../port/netif.h"
 
@@ -341,7 +342,7 @@ rfdalloc(ulong link)
 }
 
 static void
-watchdog(void* arg)
+ethwatchdog(void* arg)
 {
 	Ether *ether;
 	Ctlr *ctlr;
@@ -393,7 +394,7 @@ attach(Ether* ether)
 		 */
 		if((ctlr->eeprom[0x03] & 0x0003) != 0x0003){
 			snprint(name, KNAMELEN, "#l%dwatchdog", ether->ctlrno);
-			kproc(name, watchdog, ether);
+			kproc(name, ethwatchdog, ether);
 		}
 	}
 	unlock(&ctlr->slock);
@@ -402,8 +403,8 @@ attach(Ether* ether)
 static long
 ifstat(Ether* ether, void* a, long n, ulong offset)
 {
-	char *p;
-	int i, len, phyaddr;
+	char *alloc, *e, *p;
+	int i, phyaddr;
 	Ctlr *ctlr;
 	ulong dump[17];
 
@@ -434,51 +435,54 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	memmove(dump, ctlr->dump, sizeof(dump));
 	unlock(&ctlr->dlock);
 
-	p = malloc(READSTR);
-	len = snprint(p, READSTR, "transmit good frames: %lud\n", dump[0]);
-	len += snprint(p+len, READSTR-len, "transmit maximum collisions errors: %lud\n", dump[1]);
-	len += snprint(p+len, READSTR-len, "transmit late collisions errors: %lud\n", dump[2]);
-	len += snprint(p+len, READSTR-len, "transmit underrun errors: %lud\n", dump[3]);
-	len += snprint(p+len, READSTR-len, "transmit lost carrier sense: %lud\n", dump[4]);
-	len += snprint(p+len, READSTR-len, "transmit deferred: %lud\n", dump[5]);
-	len += snprint(p+len, READSTR-len, "transmit single collisions: %lud\n", dump[6]);
-	len += snprint(p+len, READSTR-len, "transmit multiple collisions: %lud\n", dump[7]);
-	len += snprint(p+len, READSTR-len, "transmit total collisions: %lud\n", dump[8]);
-	len += snprint(p+len, READSTR-len, "receive good frames: %lud\n", dump[9]);
-	len += snprint(p+len, READSTR-len, "receive CRC errors: %lud\n", dump[10]);
-	len += snprint(p+len, READSTR-len, "receive alignment errors: %lud\n", dump[11]);
-	len += snprint(p+len, READSTR-len, "receive resource errors: %lud\n", dump[12]);
-	len += snprint(p+len, READSTR-len, "receive overrun errors: %lud\n", dump[13]);
-	len += snprint(p+len, READSTR-len, "receive collision detect errors: %lud\n", dump[14]);
-	len += snprint(p+len, READSTR-len, "receive short frame errors: %lud\n", dump[15]);
-	len += snprint(p+len, READSTR-len, "nop: %d\n", ctlr->nop);
+	if((alloc = malloc(READSTR)) == nil)
+		error(Enomem);
+	p = alloc;
+	e = p + READSTR;
+
+	p = seprint(p, e, "transmit good frames: %lud\n", dump[0]);
+	p = seprint(p, e, "transmit maximum collisions errors: %lud\n", dump[1]);
+	p = seprint(p, e, "transmit late collisions errors: %lud\n", dump[2]);
+	p = seprint(p, e, "transmit underrun errors: %lud\n", dump[3]);
+	p = seprint(p, e, "transmit lost carrier sense: %lud\n", dump[4]);
+	p = seprint(p, e, "transmit deferred: %lud\n", dump[5]);
+	p = seprint(p, e, "transmit single collisions: %lud\n", dump[6]);
+	p = seprint(p, e, "transmit multiple collisions: %lud\n", dump[7]);
+	p = seprint(p, e, "transmit total collisions: %lud\n", dump[8]);
+	p = seprint(p, e, "receive good frames: %lud\n", dump[9]);
+	p = seprint(p, e, "receive CRC errors: %lud\n", dump[10]);
+	p = seprint(p, e, "receive alignment errors: %lud\n", dump[11]);
+	p = seprint(p, e, "receive resource errors: %lud\n", dump[12]);
+	p = seprint(p, e, "receive overrun errors: %lud\n", dump[13]);
+	p = seprint(p, e, "receive collision detect errors: %lud\n", dump[14]);
+	p = seprint(p, e, "receive short frame errors: %lud\n", dump[15]);
+	p = seprint(p, e, "nop: %d\n", ctlr->nop);
 	if(ctlr->cbqmax > ctlr->cbqmaxhw)
 		ctlr->cbqmaxhw = ctlr->cbqmax;
-	len += snprint(p+len, READSTR-len, "cbqmax: %d\n", ctlr->cbqmax);
+	p = seprint(p, e, "cbqmax: %d\n", ctlr->cbqmax);
 	ctlr->cbqmax = 0;
-	len += snprint(p+len, READSTR-len, "threshold: %d\n", ctlr->threshold);
+	p = seprint(p, e, "threshold: %d\n", ctlr->threshold);
 
-	len += snprint(p+len, READSTR-len, "eeprom:");
+	p = seprint(p, e, "eeprom:");
 	for(i = 0; i < (1<<ctlr->eepromsz); i++){
 		if(i && ((i & 0x07) == 0))
-			len += snprint(p+len, READSTR-len, "\n       ");
-		len += snprint(p+len, READSTR-len, " %4.4ux", ctlr->eeprom[i]);
+			p = seprint(p, e, "\n       ");
+		p = seprint(p, e, " %4.4ux", ctlr->eeprom[i]);
 	}
 
 	if((ctlr->eeprom[6] & 0x1F00) && !(ctlr->eeprom[6] & 0x8000)){
 		phyaddr = ctlr->eeprom[6] & 0x00FF;
-		len += snprint(p+len, READSTR-len, "\nphy %2d:", phyaddr);
+		p = seprint(p, e, "\nphy %2d:", phyaddr);
 		for(i = 0; i < 6; i++){
 			static int miir(Ctlr*, int, int);
 
-			len += snprint(p+len, READSTR-len, " %4.4ux",
-				miir(ctlr, phyaddr, i));
+			p = seprint(p, e, " %4.4ux", miir(ctlr, phyaddr, i));
 		}
 	}
+	seprint(p, e, "\n");
 
-	snprint(p+len, READSTR-len, "\n");
-	n = readstr(offset, a, n, p);
-	free(p);
+	n = readstr(offset, a, n, alloc);
+	free(alloc);
 
 	return n;
 }
@@ -795,6 +799,10 @@ ctlrinit(Ctlr* ctlr)
 	 */
 	ilock(&ctlr->cblock);
 	ctlr->cbr = malloc(ctlr->ncb*sizeof(Cb));
+	if(ctlr->cbr == nil) {
+		iunlock(&ctlr->cblock);
+		error(Enomem);
+	}
 	for(i = 0; i < ctlr->ncb; i++){
 		ctlr->cbr[i].status = CbC|CbOK;
 		ctlr->cbr[i].command = CbS|CbNOP;
@@ -911,6 +919,8 @@ reread:
 	if(ctlr->eepromsz == 0){
 		ctlr->eepromsz = 8-size;
 		ctlr->eeprom = malloc((1<<ctlr->eepromsz)*sizeof(ushort));
+		if(ctlr->eeprom == nil)
+			error(Enomem);
 		goto reread;
 	}
 
@@ -931,6 +941,8 @@ i82557pci(void)
 		default:
 			continue;
 		case 0x1031:		/* Intel 82562EM */
+		case 0x103B:		/* Intel 82562EM */
+		case 0x103C:		/* Intel 82562EM */
 		case 0x1050:		/* Intel 82562EZ */
 		case 0x1039:		/* Intel 82801BD PRO/100 VE */
 		case 0x103A:		/* Intel 82562 PRO/100 VE */
@@ -969,6 +981,8 @@ i82557pci(void)
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil)
+			error(Enomem);
 		ctlr->port = port;
 		ctlr->pcidev = p;
 		ctlr->nop = nop;
@@ -1287,7 +1301,7 @@ reset(Ether* ether)
 	 * Load the chip configuration and start it off.
 	 */
 	if(ether->oq == 0)
-		ether->oq = qopen(256*1024, Qmsg, 0, 0);
+		ether->oq = qopen(64*1024, Qmsg, 0, 0);
 	configure(ether, 0);
 	command(ctlr, CUstart, PADDR(&ctlr->cbr->status));
 

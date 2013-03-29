@@ -317,7 +317,7 @@ probewrite(Chan *c, void *a, long n, vlong)
 			//	if(addr < ((ulong) start) || addr > ((ulong) end))
 			//		error("devprobe: address out of bounds");
 				if(p != nil)
-					error("devprobe: 0x%p already has probe");
+					error("devprobe: %#p already has probe");
 				p = mkprobe(func, probeentry, probeexit);
 				p->next = probes;
 				if(ntok < 4)

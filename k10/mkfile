@@ -17,7 +17,7 @@ OBJ=$MACH $CONF.root.$O $DEVS $PORT
 $p$CONF:	$CONF.c $OBJ $LIB
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 	$LD -o $target -T0xfffffffff0110000 -R4096 -l $OBJ $CONF.$O $LIB
-#	$LD -o $target.elf -H5 -8 -T0xfffffffff0110000 -l $OBJ $CONF.$O $LIB
+#	$LD -o $target.elf -H5 -E0x00110000 -P0x00110000 -8 -T0xfffffffff0110000 -l $OBJ $CONF.$O $LIB
 	size $target
 
 l32p.$O:	${objtype}l.h
@@ -44,8 +44,6 @@ syscall.$O:	amd64.h
 trap.$O:	../port/error.h io.h
 trap.$O:	/sys/include/tos.h /$objtype/include/ureg.h
 
-devaoe.$O:	../port/error.h ../port/netif.h ../ip/ip.h
-devaoe.$O:	../386/aoe.h etherif.h
 devether.$O:	../port/error.h ../port/netif.h etherif.h
 devrtc.$O:	../port/error.h
 ether8169.$O:	../port/error.h ../port/ethermii.h ../port/netif.h
@@ -60,10 +58,7 @@ etherm10g.$O:	../386/etherm10g2k.i ../386/etherm10g4k.i
 i8259.$O:	io.h
 kbd.$O:		../port/error.h io.h
 pci.$O:		io.h
-sdaoe.$O:	../port/error.h ../port/netif.h ../port/sd.h
 sdiahci.$O:	../386/ahci.h
-sdaoe.$O:	../386/aoe.h etherif.h io.h
-sdscsi.$O:	../port/error.h
 
 random.$O:	../port/error.h
 

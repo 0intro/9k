@@ -1,5 +1,5 @@
 /*
- * Intel 8254[340]NN Gigabit Ethernet PCI Controllers
+ * Intel 8254[0-7]NN Gigabit Ethernet PCI Controllers
  * as found on the Intel PRO/1000 series of adapters:
  *	82543GC	Intel PRO/1000 T
  *	82544EI Intel PRO/1000 XT
@@ -453,7 +453,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 typedef struct Ctlr {
-	int	port;
+	u32int	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
 	Ether*	edev;
@@ -469,7 +469,7 @@ typedef struct Ctlr {
 	int	ntd;
 	int	nrb;			/* how many this Ctlr has in the pool */
 
-	int*	nic;
+	u32int*	nic;
 	Lock	imlock;
 	int	im;			/* interrupt mask */
 
@@ -596,18 +596,18 @@ static long
 igbeifstat(Ether* edev, void* a, long n, ulong offset)
 {
 	Ctlr *ctlr;
-	char *p, *s;
-	int i, l, r;
+	int i, r;
 	uvlong tuvl, ruvl;
+	char *alloc, *e, *p, *s;
+
+	if((alloc = malloc(READSTR)) == nil)
+		error(Enomem);
 
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
-	p = malloc(READSTR);
-	if(p == nil) {
-		qunlock(&ctlr->slock);
-		error(Enomem);
-	}
-	l = 0;
+
+	p = alloc;
+	e = p + READSTR;
 	for(i = 0; i < Nstatistics; i++){
 		r = csr32r(ctlr, Statistics+i*4);
 		if((s = statistics[i]) == nil)
@@ -626,8 +626,7 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 				continue;
 			ctlr->statistics[i] = tuvl;
 			ctlr->statistics[i+1] = tuvl>>32;
-			l += snprint(p+l, READSTR-l, "%s: %llud %llud\n",
-				s, tuvl, ruvl);
+			p = seprint(p, e, "%s: %llud %llud\n", s, tuvl, ruvl);
 			i++;
 			break;
 
@@ -635,44 +634,35 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 			ctlr->statistics[i] += r;
 			if(ctlr->statistics[i] == 0)
 				continue;
-			l += snprint(p+l, READSTR-l, "%s: %ud %ud\n",
+			 p = seprint(p, e, "%s: %ud %ud\n",
 				s, ctlr->statistics[i], r);
 			break;
 		}
 	}
 
-	l += snprint(p+l, READSTR-l, "lintr: %ud %ud\n",
-		ctlr->lintr, ctlr->lsleep);
-	l += snprint(p+l, READSTR-l, "rintr: %ud %ud\n",
-		ctlr->rintr, ctlr->rsleep);
-	l += snprint(p+l, READSTR-l, "tintr: %ud %ud\n",
-		ctlr->tintr, ctlr->txdw);
-	l += snprint(p+l, READSTR-l, "ixcs: %ud %ud %ud\n",
+	p = seprint(p, e, "lintr: %ud %ud\n", ctlr->lintr, ctlr->lsleep);
+	p = seprint(p, e, "rintr: %ud %ud\n", ctlr->rintr, ctlr->rsleep);
+	p = seprint(p, e, "tintr: %ud %ud\n", ctlr->tintr, ctlr->txdw);
+	p = seprint(p, e, "ixcs: %ud %ud %ud\n",
 		ctlr->ixsm, ctlr->ipcs, ctlr->tcpcs);
-	l += snprint(p+l, READSTR-l, "rdtr: %ud\n", ctlr->rdtr);
-	l += snprint(p+l, READSTR-l, "Ctrlext: %08x\n", csr32r(ctlr, Ctrlext));
+	p = seprint(p, e, "rdtr: %ud\n", ctlr->rdtr);
+	p = seprint(p, e, "Ctrlext: %08x\n", csr32r(ctlr, Ctrlext));
 
-	l += snprint(p+l, READSTR-l, "eeprom:");
+	p = seprint(p, e, "eeprom:");
 	for(i = 0; i < 0x40; i++){
 		if(i && ((i & 0x07) == 0))
-			l += snprint(p+l, READSTR-l, "\n       ");
-		l += snprint(p+l, READSTR-l, " %4.4uX", ctlr->eeprom[i]);
+			p = seprint(p, e, "\n       ");
+		p = seprint(p, e, " %4.4ux", ctlr->eeprom[i]);
 	}
-	l += snprint(p+l, READSTR-l, "\n");
+	p = seprint(p, e, "\n");
 
-	if(ctlr->mii != nil && ctlr->mii->curphy != nil){
-		l += snprint(p+l, READSTR-l, "phy:   ");
-		for(i = 0; i < NMiiPhyr; i++){
-			if(i && ((i & 0x07) == 0))
-				l += snprint(p+l, READSTR-l, "\n       ");
-			r = miimir(ctlr->mii, i);
-			l += snprint(p+l, READSTR-l, " %4.4uX", r);
-		}
-		snprint(p+l, READSTR-l, "\n");
-	}
-	n = readstr(offset, a, n, p);
-	free(p);
+	if(ctlr->mii != nil && ctlr->mii->curphy != nil)
+		miidumpphy(ctlr->mii, p, e);
+
+	n = readstr(offset, a, n, alloc);
+
 	qunlock(&ctlr->slock);
+	free(alloc);
 
 	return n;
 }
@@ -1106,9 +1096,9 @@ igberxinit(Ctlr* ctlr)
 	csr32w(ctlr, Rxdctl, (8<<WthreshSHIFT)|(8<<HthreshSHIFT)|4);
 
 	/*
-	 * Enable checksum offload.
+	 * Do not enable checksum offload as it has known bugs.
 	 */
-	csr32w(ctlr, Rxcsum, Tuofl|Ipofl|(ETHERHDRSIZE<<PcssSHIFT));
+	csr32w(ctlr, Rxcsum, /*Tuofl|Ipofl|*/ETHERHDRSIZE<<PcssSHIFT);
 }
 
 static int
@@ -1494,8 +1484,10 @@ igbemii(Ctlr* ctlr)
 		 * so bail.
 		 */
 		r = csr32r(ctlr, Ctrlext);
-		if(!(r & Mdro))
+		if(!(r & Mdro)){
+			print("igbe: 82543gc Mdro not set\n");
 			return nil;
+		}
 		csr32w(ctlr, Ctrlext, r);
 		delay(20);
 		r = csr32r(ctlr, Ctrlext);
@@ -1711,7 +1703,7 @@ at93c46r(Ctlr* ctlr)
 		 * for protocol details.
 		 */
 		if(at93c46io(ctlr, rop, (0x06<<bits)|addr) != 0){
-			print("igbe: can't set EEPROM address 0x%2.2X\n", addr);
+			print("igbe: can't set EEPROM address %#2.2ux\n", addr);
 			goto release;
 		}
 		data = at93c46io(ctlr, ":16COc;", 0);
@@ -1813,7 +1805,7 @@ igbereset(Ctlr* ctlr)
 	 * then get the device back to a power-on state.
 	 */
 	if((r = at93c46r(ctlr)) != 0xBABA){
-		print("igbe: bad EEPROM checksum - 0x%4.4uX\n", r);
+		print("igbe: bad EEPROM checksum - %#4.4ux\n", r);
 		return -1;
 	}
 
@@ -2054,4 +2046,3 @@ etherigbelink(void)
 	addethercard("i82543", igbepnp);
 	addethercard("igbe", igbepnp);
 }
-

@@ -404,7 +404,7 @@ static int
 sd2gen(Chan* c, int i, Dir* dp)
 {
 	Qid q;
-	vlong l;
+	uvlong l;
 	SDpart *pp;
 	SDperm *perm;
 	SDunit *unit;
@@ -443,7 +443,7 @@ sd2gen(Chan* c, int i, Dir* dp)
 
 	case Qpart:
 		pp = &unit->part[PART(c->qid)];
-		l = (pp->end - pp->start) * (vlong)unit->secsize;
+		l = (pp->end - pp->start) * unit->secsize;
 		mkqid(&q, QID(DEV(c->qid), UNIT(c->qid), PART(c->qid), Qpart),
 			unit->vers+pp->vers, QTFILE);
 		if(emptystr(pp->user))
@@ -475,7 +475,7 @@ static int
 sdgen(Chan* c, char*, Dirtab*, int, int s, Dir* dp)
 {
 	Qid q;
-	vlong l;
+	uvlong l;
 	int i, r;
 	SDpart *pp;
 	SDunit *unit;
@@ -576,7 +576,7 @@ sdgen(Chan* c, char*, Dirtab*, int, int s, Dir* dp)
 			decref(&sdev->r);
 			return 0;
 		}
-		l = (pp->end - pp->start) * (vlong)unit->secsize;
+		l = (pp->end - pp->start) * unit->secsize;
 		mkqid(&q, QID(DEV(c->qid), UNIT(c->qid), i, Qpart),
 			unit->vers+pp->vers, QTFILE);
 		if(emptystr(pp->user))
@@ -1199,12 +1199,12 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 {
 	char *f0;
 	int i;
+	uvlong end, start;
 	Cmdbuf *cb;
 	SDifc *ifc;
 	SDreq *req;
 	SDunit *unit;
 	SDev *sdev;
-	uvlong end, start;
 
 	switch(TYPE(c->qid)){
 	default:
