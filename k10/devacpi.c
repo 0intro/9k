@@ -442,6 +442,7 @@ sdtmap(uintmem pa, int *n, int cksum)
 		DBG("acpi: nil vmap\n");
 		return nil;
 	}
+	DBG("acpi: sdtmap %#P -> %#p, length %d\n", pa, sdt, *n);
 	if(cksum != 0 && sdtchecksum(sdt, *n) == nil){
 		DBG("acpi: SDT: bad checksum\n");
 		vunmap(sdt, sizeof(Sdthdr));
@@ -499,7 +500,7 @@ gasget(Gas *gas, uchar *p)
 }
 
 static void
-dumpfadt(Fadt *fp)
+dumpfadt(Fadt *fp, int revision)
 {
 	USED(fp);
 	DBG("acpi: fadt: facs: %#ux\n", fp->facs);
@@ -538,6 +539,10 @@ dumpfadt(Fadt *fp)
 	DBG("acpi: fadt: century: %#ux\n", fp->century);
 	DBG("acpi: fadt: iapcbootarch: %#ux\n", fp->iapcbootarch);
 	DBG("acpi: fadt: flags: %#ux\n", fp->flags);
+
+	if(revision < 3)
+		return;
+
 	DBG("acpi: fadt: resetreg: %G\n", &fp->resetreg);
 	DBG("acpi: fadt: resetval: %#ux\n", fp->resetval);
 	DBG("acpi: fadt: xfacs: %#llux\n", fp->xfacs);
@@ -556,9 +561,11 @@ static Atable*
 acpifadt(uchar *p, int)
 {
 	Fadt *fp;
+	int revision;
 
 	fp = &fadt;
-	DBG("acpifadt %p\n", p);
+	revision = p[8];
+	DBG("acpifadt %#p length %ud revision %ud\n", p, l32get(p+4), revision);
 	fp->facs = l32get(p + 36);
 	fp->dsdt = l32get(p + 40);
 	fp->pmprofile = p[45];
@@ -595,21 +602,31 @@ acpifadt(uchar *p, int)
 	fp->century = p[108];
 	fp->iapcbootarch = l16get(p+109);
 	fp->flags = l32get(p+112);
-	gasget(&fp->resetreg, p+116);
 
-	fp->resetval = p[128];
-	fp->xfacs = l64get(p+132);
-	fp->xdsdt = l64get(p+140);
-	gasget(&fp->xpm1aevtblk, p+148);
-	gasget(&fp->xpm1bevtblk, p+160);
-	gasget(&fp->xpm1acntblk, p+172);
-	gasget(&fp->xpm1bcntblk, p+184);
-	gasget(&fp->xpm2cntblk, p+196);
-	gasget(&fp->xpmtmrblk, p+208);
-	gasget(&fp->xgpe0blk, p+220);
-	gasget(&fp->xgpe1blk, p+232);
+	/*
+	 * Revision 1 of this table stops here, and is described
+	 * in The ACPI Specification 1.0, 22-Dec-1996.
+	 * The ACPI Specification 2.0, 27-Jul-2000, bumped the revision
+	 * number up to 3 and added the extra fields on the end.
+	 * Thank you, QEMU.
+	 */
+	if(revision >= 3){
+		gasget(&fp->resetreg, p+116);
 
-	dumpfadt(fp);
+		fp->resetval = p[128];
+		fp->xfacs = l64get(p+132);
+		fp->xdsdt = l64get(p+140);
+		gasget(&fp->xpm1aevtblk, p+148);
+		gasget(&fp->xpm1bevtblk, p+160);
+		gasget(&fp->xpm1acntblk, p+172);
+		gasget(&fp->xpm1bcntblk, p+184);
+		gasget(&fp->xpm2cntblk, p+196);
+		gasget(&fp->xpmtmrblk, p+208);
+		gasget(&fp->xgpe0blk, p+220);
+		gasget(&fp->xgpe1blk, p+232);
+	}
+
+	dumpfadt(fp, revision);
 
 	/* If xfacs or xdsdt are either nil
 	 * or different from their 32-bit
@@ -629,7 +646,7 @@ acpifadt(uchar *p, int)
 	else
 		loadfacs(fp->dsdt);
 
-	return nil;	/* can be unmapped once parsed */
+	return nil;			/* can be unmapped once parsed */
 }
 
 static void

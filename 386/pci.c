@@ -792,59 +792,24 @@ pcicfginit(void)
 	char *p;
 	Pcidev **list;
 	ulong mema, ioa;
-	int bno, n, pcibios;
+	int bno, n;
 
 	lock(&pcicfginitlock);
 	if(pcicfgmode != -1)
 		goto out;
 
-	pcibios = 0;
 	if(getconf("*nobios"))
 		nobios = 1;
-	else if(getconf("*pcibios"))
-		pcibios = 1;
 	if(getconf("*nopcirouting"))
 		nopcirouting = 1;
 
 	/*
-	 * Try to determine which PCI configuration mode is implemented.
-	 * Mode2 uses a byte at 0xCF8 and another at 0xCFA; Mode1 uses
-	 * a DWORD at 0xCF8 and another at 0xCFC and will pass through
-	 * any non-DWORD accesses as normal I/O cycles. There shouldn't be
-	 * a device behind these addresses so if Mode1 accesses fail try
-	 * for Mode2 (Mode2 is deprecated).
+	 * Assume Configuration Mechanism One. Method Two was deprecated
+	 * a long time ago and was only for backwards compaibility with the
+	 * Intel Saturn and Mercury chip sets. Thank you, QEMU.
 	 */
-	if(!pcibios){
-		/*
-		 * Bits [30:24] of PciADDR must be 0,
-		 * according to the spec.
-		 */
-		n = inl(PciADDR);
-		if(!(n & 0x7FF00000)){
-			outl(PciADDR, 0x80000000);
-			outb(PciADDR+3, 0);
-			if(inl(PciADDR) & 0x80000000){
-				pcicfgmode = 1;
-				pcimaxdno = 31;
-			}
-		}
-		outl(PciADDR, n);
-
-		if(pcicfgmode < 0){
-			/*
-			 * The 'key' part of PciCSE should be 0.
-			 */
-			n = inb(PciCSE);
-			if(!(n & 0xF0)){
-				outb(PciCSE, 0x0E);
-				if(inb(PciCSE) == 0x0E){
-					pcicfgmode = 2;
-					pcimaxdno = 15;
-				}
-			}
-			outb(PciCSE, n);
-		}
-	}
+	pcicfgmode = 1;
+	pcimaxdno = 31;
 
 	if(pcicfgmode < 0)
 		goto out;

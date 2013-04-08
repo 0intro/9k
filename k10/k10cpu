@@ -31,6 +31,7 @@ ip +dev
 	icmp6
 
 link +dev
+	ether8139	pci
 	ether8169	pci ethermii
 	ether82557	pci
 	ether82563	pci
@@ -85,7 +86,7 @@ conf
 #
 dbgflg
 	apic		'A'
-	acpi		'C'
+	devacpi		'C'
 	hpet		'H'
 	ht		'H'
 	ioapic		'I'
