@@ -31,7 +31,7 @@ devarch.$O:	../port/error.h /$objtype/include/ureg.h
 fpu.$O:		amd64.h
 fpu.$O:		/$objtype/include/ureg.h
 ioapic.$O:	apic.h io.h
-main.$O:	init.h
+main.$O:	amd64.h io.h init.h
 memory.$O:	amd64.h
 mmu.$O:		amd64.h
 mp.$O:		apic.h

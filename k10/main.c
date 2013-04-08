@@ -4,6 +4,8 @@
 #include "dat.h"
 #include "fns.h"
 
+#include "io.h"
+
 #include "init.h"
 
 extern void crapoptions(void);	/* XXX - must go */
@@ -124,13 +126,12 @@ squidboy(int apicno)
 		 * if this were a real O/S, it would perhaps allow a clock
 		 * interrupt to call the scheduler, and that would
 		 * be a mistake.
-		 * However, by taking the lowering of the APIC task priority
-		 * out of apiconline something could be done here with
-		 * MONITOR/MWAIT perhaps to drop the energy used by the
-		 * idle core.
+		 * Could perhaps use MONITOR/MWAIT here to drop the energy
+		 * used by the spinning core.
 		 */
 		while(!m->online)
 			;
+		apictimerenable();
 		apictprput(0);
 
 		DBG("mach%d: online color %d\n", m->machno, m->color);
@@ -231,11 +232,13 @@ main(u32int ax, u32int bx)
 	 * because the vector base is likely different, causing
 	 * havoc. Do it before any APIC initialisation.
 	 */
-	i8259init(32);
+	i8259init(IdtPIC);
 
 	acpiinit();
 	mpsinit();
 	apiconline();
+	intrenable(IdtTIMER, apictimerintr, 0, -1, "APIC timer");
+	apictimerenable();
 	apictprput(0);
 
 	timersinit();

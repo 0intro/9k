@@ -5,7 +5,7 @@
  * at the same address as they can only be accessed by
  * the local CPU.
 To do: probably split this into 2 structs, Apic and IOApic;
-       x2APIC...
+	x2APIC...
  */
 typedef struct {
 	int	useable;			/* en */
@@ -16,7 +16,7 @@ typedef struct {
 	int	gsib;				/* IOAPIC: global RDT index */
 
 	int	machno;				/* APIC */
-	u32int	lvt[8];
+	u32int	lvt[10];
 	int	nlvt;
 	int	ver;				/* unused */
 
@@ -68,7 +68,6 @@ enum {
 };
 
 Apic xapic[Napic];
-Mach* xapicmachptr[Napic];			/* maintained, but unused */
 Apic ioapic[Napic];
 
 #define l16get(p)	(((p)[1]<<8)|(p)[0])

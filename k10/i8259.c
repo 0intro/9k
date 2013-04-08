@@ -168,7 +168,7 @@ i8259irqenable(Vctl* v)
 	/*
 	 * Given an IRQ, enable the corresponding interrupt in the i8259
 	 * and return the vector to be used. The i8259 is set to use a fixed
-	 * range of vectors starting at VectorPIC.
+	 * range of vectors starting at a fixed vector base.
 	 */
 	irq = v->irq;
 	if(irq < 0 || irq > 15){

@@ -127,7 +127,7 @@ void	tssrsp0(u64int);
 void	trapenable(int, void (*)(Ureg*, void*), void*, char*);
 void	trapinit(void);
 int	userureg(Ureg*);
-void*	vmap(uintptr, usize);
+void*	vmap(uintmem, usize);
 void	vsvminit(int);
 void	vunmap(void*, usize);
 
@@ -188,10 +188,12 @@ extern void apicinit(int, uintptr, int);
 extern int apicisr(int);
 extern int apiconline(void);
 extern void apicsipi(int, uintptr);
+extern void apictimerdisable(void);
+extern void apictimerenable(void);
 extern void apictimerintr(Ureg*, void*);
 extern void apictprput(int);
 
-extern void ioapicinit(int, uintptr);
+extern void ioapicinit(int, uintmem);
 extern void ioapicintrinit(int, int, int, int, u32int);
 extern void ioapiconline(void);
 

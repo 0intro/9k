@@ -89,7 +89,7 @@ ioapicintrinit(int busno, int apicno, int intin, int devno, u32int lo)
 }
 
 void
-ioapicinit(int id, uintptr pa)
+ioapicinit(int id, uintmem pa)
 {
 	Apic *apic;
 
@@ -245,8 +245,8 @@ ioapicintrenable(Vctl* v)
 	 * the work in progress...
 	 */
 	if(v->tbdf == BUSUNKNOWN){
-		if(v->irq >= IrqLINT0 && v->irq <= MaxIrqLAPIC){
-			if(v->irq != IrqSPURIOUS)
+		if(v->irq >= IdtLINT0 && v->irq <= IdtSPURIOUS){
+			if(v->irq != IdtSPURIOUS)
 				v->isr = apiceoi;
 			return v->irq;
 		}
@@ -364,7 +364,7 @@ ioapicintrdisable(int vecno)
 	 *
 	 * What about any pending interrupts?
 	 */
-	if(vecno < 0 || vecno > MaxVectorAPIC){
+	if(vecno < 0 || vecno > IdtMAX){
 		panic("ioapicintrdisable: vecno %d out of range", vecno);
 		return -1;
 	}

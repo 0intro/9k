@@ -88,22 +88,27 @@ mpmkintr(u8int* p)
 			mpintrprint("APIC ID out of range", p);
 			return 0;
 		}
-		apic = &ioapic[p[6]];
-		if(!apic->useable){
-			mpintrprint("unuseable APIC", p);
-			return 0;
-		}
 		switch(p[0]){
 		default:
 			mpintrprint("INTIN botch", p);
 			return 0;
 		case 3:				/* IOINTR */
+			apic = &ioapic[p[6]];
+			if(!apic->useable){
+				mpintrprint("unuseable APIC", p);
+				return 0;
+			}
 			if(p[7] >= apic->nrdt){
 				mpintrprint("IO INTIN out of range", p);
 				return 0;
 			}
 			break;
 		case 4:				/* LINTR */
+			apic = &xapic[p[6]];
+			if(!apic->useable){
+				mpintrprint("unuseable APIC", p);
+				return 0;
+			}
 			if(p[7] >= nelem(apic->lvt)){
 				mpintrprint("LOCAL INTIN out of range", p);
 				return 0;
@@ -196,8 +201,8 @@ mpparse(PCMP* pcmp)
 		 * CPU and identical for all. Indicate whether this is
 		 * the bootstrap processor (p[3] & 0x02).
 		 */
-		DBG("mpparse: cpu %d pa %#ux bp %d\n",
-			p[1], l32get(pcmp->apicpa), p[3] & 0x02);
+		DBG("mpparse: APIC %d pa %#ux useable %d\n",
+			p[1], l32get(pcmp->apicpa), p[3] & 0x01);
 		if(p[3] & 0x01)
 			apicinit(p[1], l32get(pcmp->apicpa), p[3] & 0x02);
 		p += 20;

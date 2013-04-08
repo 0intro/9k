@@ -37,8 +37,8 @@ enum {						/* Local APIC registers */
 	Lint0		= Lvt1,			/* Local Interrupt 0 */
 	Lint1		= Lvt2,			/* Local Interrupt 1 */
 	Elvt		= Lvt3,			/* Error */
-	Pclvt		= Lvt4,			/* Performance Counter */
-	Tslvt		= Lvt5,			/* Thermal Sensor */
+	Pmclvt		= Lvt4,			/* Performance Mon. Counter */
+	Thslvt		= Lvt5,			/* Thermal Sensor */
 };
 
 enum {						/* Siv */
@@ -121,9 +121,9 @@ apicinit(int apicno, uintmem pa, int isbp)
 	 * are used for the APIC ID. There is also xAPIC and x2APIC
 	 * to be dealt with sometime.
 	 */
-	DBG("apicinit: apicno %d pa %#P isbp %d\n", apicno, pa, isbp);
+	DBG("apic%d: pa %#P isbp %d\n", apicno, pa, isbp);
 	if(apicno >= Napic){
-		print("apicinit%d: out of range\n", apicno);
+		print("apic%d: out of range\n", apicno);
 		return;
 	}
 	if((apic = &xapic[apicno])->useable){
@@ -132,10 +132,10 @@ apicinit(int apicno, uintmem pa, int isbp)
 	}
 	if(apicbase == nil){
 		if((apicbase = vmap(pa, 1024)) == nil){
-			print("apicinit%d: can't map apicbase\n", apicno);
+			print("apic%d: can't map apicbase\n", apicno);
 			return;
 		}
-		DBG("apicinit%d: apicbase %#P -> %#p\n", apicno, pa, apicbase);
+		DBG("apic%d: apicbase %#P -> %#p\n", apicno, pa, apicbase);
 	}
 	apic->useable = 1;
 
@@ -168,8 +168,8 @@ apicdump(void)
 			continue;
 		DBG("apic%d: machno %d lint0 %#8.8ux lint1 %#8.8ux\n",
 			i, apic->machno, apic->lvt[0], apic->lvt[1]);
-		DBG(" tslvt %#8.8ux pclvt %#8.8ux elvt %#8.8ux\n",
-			apicrget(Tslvt), apicrget(Pclvt), apicrget(Elvt));
+		DBG(" thslvt %#8.8ux pmclvt %#8.8ux elvt %#8.8ux\n",
+			apicrget(Thslvt), apicrget(Pmclvt), apicrget(Elvt));
 		DBG(" tlvt %#8.8ux lint0 %#8.8ux lint1 %#8.8ux siv %#8.8ux\n",
 			apicrget(Tlvt), apicrget(Lint0),
 			apicrget(Lint1), apicrget(Siv));
@@ -243,7 +243,7 @@ apiconline(void)
 	 * register instead.
 	 */
 	apicrput(Tdc, DivX1);
-	apicrput(Tlvt, Im);
+	apicrput(Tlvt, Im|IdtTIMER);
 	tsc = rdtsc() + m->cpuhz/10;
 	apicrput(Tic, 0xffffffff);
 
@@ -261,7 +261,7 @@ apiconline(void)
 	}
 
 	/*
-	 * Mask interrupts on Performance Counter overflow and
+	 * Mask interrupts on Performance Monitor Counter overflow and
 	 * Thermal Sensor if implemented, and on Lintr0 (Legacy INTR),
 	 * and Lintr1 (Legacy NMI).
 	 * Clear any Error Status (write followed by read) and enable
@@ -269,10 +269,10 @@ apiconline(void)
 	 */
 	switch(apic->nlvt){
 	case 6:
-		apicrput(Tslvt, Im);
+		apicrput(Thslvt, Im|IdtTHS);
 		/*FALLTHROUGH*/
 	case 5:
-		apicrput(Pclvt, Im);
+		apicrput(Pmclvt, Im|IdtPMC);
 		/*FALLTHROUGH*/
 	default:
 		break;
@@ -298,17 +298,35 @@ apiconline(void)
 	 * Reload the timer to de-synchronise the processors.
 	 * When the caller is ready for the APIC to accept interrupts,
 	 * it should call apictprput to lower the task priority.
+	 *
+	 * The timer is enabled later by the core-specific startup
+	 * i.e. don't start the timer unless the core needs it,
+	 * to reduce the likelihood of at least one (spurious) interrupt
+	 * from the timer when priority is lowered.
 	 */
 	microdelay((TK2MS(1)*1000/sys->nmach) * m->machno);
 	apicrput(Tic, apic->max);
 
-	if(apic->machno == 0)
-		intrenable(IdtTIMER, apictimerintr, 0, -1, "APIC timer");
-	apicrput(Tlvt, Periodic|IrqTIMER);
-
-	xapicmachptr[apicno] = sys->machptr[m->machno];
-
 	return 1;
+}
+
+void
+apictimerenable(void)
+{
+	/*
+	 * Perhaps apictimerenable/apictimerdisable should just
+	 * clear/set Im in the existing settings of Tlvt, there may
+	 * be a time when the timer is used in a different mode;
+	 * if so will need to ensure the mode is set when the timer
+	 * is initialised.
+	 */
+	apicrput(Tlvt, Periodic|IdtTIMER);
+}
+
+void
+apictimerdisable(void)
+{
+	apicrput(Tlvt, Im|IdtTIMER);
 }
 
 void
@@ -318,6 +336,9 @@ apictimerset(uvlong next)
 	Apic *apic;
 	vlong period;
 
+	/*
+	 * APIC Timer.
+	 */
 	apic = &xapic[m->apicno];
 
 	pl = splhi();

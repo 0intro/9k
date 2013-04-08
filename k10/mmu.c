@@ -178,7 +178,7 @@ mmuptpget(uintptr va, int level)
 }
 
 void
-mmuput(uintptr va, uintptr pa, Page*)
+mmuput(uintptr va, uintmem pa, Page*)
 {
 	Mpl pl;
 	int l, x;
@@ -241,9 +241,9 @@ pdeget(uintptr va)
  * Called only after the va range is known to be unoccupied.
  */
 static int
-pdmap(uintptr pa, int attr, uintptr va, usize size)
+pdmap(uintmem pa, int attr, uintptr va, usize size)
 {
-	uintptr pae;
+	uintmem pae;
 	PTE *pd, *pde, *pt, *pte;
 	int pdx, pgsz;
 
@@ -364,12 +364,12 @@ vmapalloc(usize size)
 }
 
 void*
-vmap(uintptr pa, usize size)
+vmap(uintmem pa, usize size)
 {
 	uintptr va;
 	usize o, sz;
 
-	DBG("vmap(%#p, %lud)\n", pa, size);
+	DBG("vmap(%#P, %lud)\n", pa, size);
 
 	if(m->machno != 0)
 		panic("vmap");
@@ -410,7 +410,7 @@ vmap(uintptr pa, usize size)
 	}
 	iunlock(&vmaplock);
 
-	DBG("vmap(%#p, %lud) => %#p\n", pa+o, size, va+o);
+	DBG("vmap(%#P, %lud) => %#p\n", pa+o, size, va+o);
 
 	return UINT2PTR(va + o);
 }
@@ -443,6 +443,7 @@ vunmap(void* v, usize size)
 int
 mmuwalk(uintptr va, int level, PTE** ret, u64int (*alloc)(usize))
 {
+//alloc and pa - uintmem or PTE or what?
 	int l;
 	Mpl pl;
 	uintptr pa;
@@ -491,14 +492,14 @@ mmuphysaddr(uintptr va)
 	 * question, should va be void* or uintptr?
 	 */
 	l = mmuwalk(va, 0, &pte, nil);
-	DBG("physaddr: va %#p l %d\n", va, l);
+	DBG("mmuphysaddr: va %#p l %d\n", va, l);
 	if(l < 0)
 		return ~0;
 
 	mask = (1ull<<(((l)*PTSHFT)+PGSHFT))-1;
 	pa = (*pte & ~mask) + (va & mask);
 
-	DBG("physaddr: l %d va %#p pa %#llux\n", l, va, pa);
+	DBG("mmuphysaddr: l %d va %#p pa %#llux\n", l, va, pa);
 
 	return pa;
 }

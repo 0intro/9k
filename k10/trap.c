@@ -8,6 +8,7 @@
 #include	<tos.h>
 #include	"ureg.h"
 
+#include	"amd64.h"
 #include	"io.h"
 
 extern int notify(Ureg*);
@@ -69,7 +70,7 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 
 	/*
 	 * Return the assigned vector so intrdisable can find
-	 * the handler; the IRQ is useless in the wondrefule world
+	 * the handler; the IRQ is useless in the wonderful world
 	 * of the IOAPIC.
 	 */
 	return v;
@@ -180,10 +181,10 @@ trapinit(void)
 	 * Special traps.
 	 * Syscall() is called directly without going through trap().
 	 */
-	trapenable(VectorBPT, debugbpt, 0, "#BP");
-	trapenable(VectorPF, faultamd64, 0, "#PF");
-	trapenable(Vector2F, doublefault, 0, "#DF");
-	trapenable(Vector15, unexpected, 0, "#15");
+	trapenable(IdtBP, debugbpt, 0, "#BP");
+	trapenable(IdtPF, faultamd64, 0, "#PF");
+	trapenable(IdtDF, doublefault, 0, "#DF");
+	trapenable(Idt0F, unexpected, 0, "#15");
 	nmienable();
 
 	addarchfile("irqalloc", 0444, irqallocread, nil);
@@ -266,7 +267,7 @@ kexit(Ureg*)
  *  All traps come here.  It is slower to have all traps call trap()
  *  rather than directly vectoring the handler.  However, this avoids a
  *  lot of code duplication and possible bugs.  The only exception is
- *  VectorSYSCALL.
+ *  for a system call.
  *  Trap is called with interrupts disabled via interrupt-gates.
  */
 void
@@ -289,7 +290,7 @@ trap(Ureg* ureg)
 	if(ctl = vctl[vno]){
 		if(ctl->isintr){
 			m->intr++;
-			if(vno >= VectorPIC && vno != VectorSYSCALL)
+			if(vno >= IdtPIC && vno != IdtSYSCALL)
 				m->lastintr = ctl->irq;
 		}
 
@@ -304,7 +305,7 @@ trap(Ureg* ureg)
 		if(ctl->isintr){
 			intrtime(m, vno);
 
-			if(ctl->irq == IrqCLOCK || ctl->irq == IrqTIMER)
+			if(ctl->irq == IdtPIC+IrqCLOCK || ctl->irq == IdtTIMER)
 				clockintr = 1;
 
 			if(up && !clockintr)
@@ -317,7 +318,7 @@ trap(Ureg* ureg)
 		postnote(up, 1, buf, NDebug);
 	}
 	else{
-		if(vno == VectorNMI){
+		if(vno == IdtNMI){
 			nmienable();
 			if(m->machno != 0){
 				iprint("cpu%d: PC %#llux\n",
