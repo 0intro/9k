@@ -11,6 +11,9 @@
  *   CS base set to startup memory address;
  *   CS limit set to 64KiB;
  *   CPL and IP set to 0.
+ * Parameters are passed to this code via a vector in low memory
+ * indexed by the APIC number of the processor. The layout, size,
+ * and location have to be kept in sync with the setup in sipi.s.
  */
 #include "mem.h"
 #include "amd64l.h"
@@ -18,7 +21,7 @@
 /*
  * Some machine instructions not handled well by [68][al].
  * This is a messy piece of code, requiring instructions in real mode,
- * protected mode (+long mode on amd64). The MODE psuedo-op of 6[al] handles
+ * protected mode (+long mode on amd64). The MODE pseudo-op of 6[al] handles
  * the latter two OK, but 'MODE $16' is incomplete, e.g. it does
  * not truncate operands appropriately, hence the ugly 'rMOVAX' macro.
  * Fortunately, the only other instruction executed in real mode that
@@ -96,15 +99,12 @@ TEXT _endofheader<>(SB), 1, $-4
 
 /*
  * Protected mode. Welcome to 1982.
- * Get the local APIC ID from the memory mapped APIC;
-#ifdef UseOwnPageTables
- * load the PDB with the page table address, which is located
- * in the word immediately preceeding _real<>-KZERO(SB);
- * this is also the (physical) address of the top of stack;
-#else
- * load the PML4 with the shared page table address;
-#endif
- * make an identity map for the inter-segment jump below;
+ * Get the local APIC ID from the memory mapped APIC
+ * and use it to locate the index to the parameter vector;
+ * load the PDB with the page table address from the
+ * information vector;
+ * make an identity map for the inter-segment jump below,
+ * using the stack space to hold a temporary PDP and PD;
  * enable and activate long mode;
  * make an inter-segment jump to the long mode code.
  */
@@ -125,29 +125,29 @@ TEXT _protected<>(SB), 1, $-4
 	MOVL	0x20(BP), BP			/* Id */
 	SHRL	$24, BP				/* becomes RARG later */
 
-#ifdef UseOwnPageTables
-	MOVL	$_real<>-KZERO(SB), AX
-	MOVL	-4(AX), SI			/* page table PML4 */
-#else
-	MOVL	$(0x00100000+MACHSTKSZ), SI	/* page table PML4 */
-#endif
+	MOVL	BP, AX				/* apicno */
+	IMULL	$32, AX				/* [apicno] */
+	MOVL	$_real<>-KZERO(SB), BX
+	ADDL	$4096, BX			/* sipi */
+	ADDL	AX, BX				/* sipi[apicno] */
 
+	MOVL	0(BX), SI			/* sipi[apicno].pml4 */
+	
 	MOVL	SI, AX
 	MOVL	AX, CR3				/* load the mmu */
 
-	MOVL	PML4O(KZERO)(AX), DX		/* PML4E for KZERO, PMAPADDR */
+	MOVL	AX, DX
+	SUBL	$MACHSTKSZ, DX			/* PDP for identity map */
+	ADDL	$(PteRW|PteP), DX
 	MOVL	DX, PML4O(0)(AX)		/* PML4E for identity map */
 
-	ANDL	$~((1<<PTSHFT)-1), DX		/* lop off attribute bits */
-	MOVL	DX, AX				/* PDP for KZERO */
-	MOVL	PDPO(KZERO)(AX), DX		/* PDPE for KZERO, PMAPADDR */
+	SUBL	$MACHSTKSZ, AX			/* PDP for identity map */
+	ADDL	$PTSZ, DX
 	MOVL	DX, PDPO(0)(AX)			/* PDPE for identity map */
+	MOVL	$(PtePS|PteRW|PteP), DX
+	ADDL	$PTSZ, AX			/* PD for identity map */
+	MOVL	DX, PDO(0)(AX)			/* PDE for identity 0-[24]MiB */
 
-	ANDL	$~((1<<PTSHFT)-1), DX		/* lop off attribute bits */
-	MOVL	DX, AX				/* PD for KZERO */
-
-	MOVL	PDO(KZERO)(AX), DX		/* PDE for KZERO 0-2MiB */
-	MOVL	DX, PDO(0)(AX)			/* PDE for identity 0-2MiB */
 
 /*
  * Enable and activate Long Mode. From the manual:
@@ -181,8 +181,8 @@ TEXT _lme<>(SB), 1, $-4
  * Jump out of the identity map space;
  * load a proper long mode GDT;
  * zap the identity map;
- * initialise the stack and call the
- * C startup code in m->splpc.
+ * initialise the stack, RMACH, RUSER,
+ * and call the C startup code.
  */
 MODE $64
 
@@ -194,61 +194,32 @@ TEXT _start64v<>(SB), 1, $-4
 	MOVQ	$_gdtptr64v<>(SB), AX
 	MOVL	(AX), GDTR
 
-	XORQ	DX, DX
+	XORQ	DX, DX				/* DX is 0 from here on */
 	MOVW	DX, DS				/* not used in long mode */
 	MOVW	DX, ES				/* not used in long mode */
 	MOVW	DX, FS
 	MOVW	DX, GS
 	MOVW	DX, SS				/* not used in long mode */
 
-	MOVLQZX	SI, SI				/* PML4-KZERO */
+	MOVLQZX	SI, SI				/* sipi[apicno].pml4 */
 	MOVQ	SI, AX
-	ADDQ	$KZERO, AX			/* PML4 and top of stack */
-
-	MOVQ	AX, SP				/* set stack */
-
-	MOVQ	PML4O(0)(AX), BX		/* PDPE identity map physical */
-	ANDQ	$~((1<<PTSHFT)-1), BX		/* lop off attribute bits */
-	ADDQ	$KZERO, BX			/* PDP identity map virtual */
-	MOVQ	DX, PML4O(0)(AX)		/* zap identity map PML4E */
-
-	MOVQ	PDPO(0)(BX), AX			/* PDE identity map physical */
-	ANDQ	$~((1<<PTSHFT)-1), AX		/* lop off attribute bits */
-	ADDQ	$KZERO, AX			/* PD identity map virtual */
-	MOVQ	DX, PDPO(0)(BX)			/* zap identity map PDPE */
-
-	MOVQ	DX, PDO(0)(AX)			/* zap identity map PDE */
-
+	ADDQ	$KZERO, AX			/* PML4 */
+	MOVQ	DX, PML4O(0)(AX)		/* zap identity map */
 	MOVQ	SI, CR3				/* flush TLB */
-#ifndef UseOwnPageTables
-	/*
-	 * SI still points to the base of the bootstrap
-	 * processor page tables.
-	 * Want to use that for clearing the identity map,
-	 * but want to use the passed-in address for
-	 * setting up the stack and Mach.
-	 */
-	MOVQ	$_real<>(SB), AX
-	MOVL	-4(AX), SI			/* PML4 */
-	MOVLQZX	SI, SI				/* PML4-KZERO */
-#endif
-	MOVQ	SI, AX
-	ADDQ	$KZERO, AX			/* PML4 and top of stack */
 
-	MOVQ	AX, SP				/* set stack */
+	ADDQ	$KZERO, BX			/* &sipi[apicno] */
 
-	ADDQ	$(4*PTSZ+PGSZ), AX		/* PML4+PDP+PD+PT+vsvm */
-	MOVQ	AX, RMACH			/* Mach */
-	MOVQ	DX, RUSER
+	MOVQ	8(BX), SP			/* sipi[apicno].stack */
 
 	PUSHQ	DX				/* clear flags */
 	POPFQ
-
 	MOVLQZX	RARG, RARG			/* APIC ID */
 	PUSHQ	RARG				/* apicno */
 
-	MOVQ	8(RMACH), AX			/* m->splpc */
-	CALL*	AX				/* CALL squidboy(SB) */
+	MOVQ	16(BX), RMACH			/* sipi[apicno].mach */
+	MOVQ	DX, RUSER
+	MOVQ	24(BX), AX			/* sipi[apicno].pc */
+	CALL*	AX				/* (*sipi[apicno].pc)(apicno) */
 
 _ndnr:
 	JMP	_ndnr

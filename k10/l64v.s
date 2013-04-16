@@ -135,7 +135,7 @@ TEXT trput(SB), 1, $-4
 /*
  * Read/write various system registers.
  */
-TEXT cr0get(SB), 1, $-4				/* CR0 - processor control */
+TEXT cr0get(SB), 1, $-4				/* Processor Control */
 	MOVQ	CR0, AX
 	RET
 
@@ -144,11 +144,11 @@ TEXT cr0put(SB), 1, $-4
 	MOVQ	AX, CR0
 	RET
 
-TEXT cr2get(SB), 1, $-4				/* CR2 - #PF virtual address */
+TEXT cr2get(SB), 1, $-4				/* #PF Linear Address */
 	MOVQ	CR2, AX
 	RET
 
-TEXT cr3get(SB), 1, $-4				/* CR3 - pml4 base */
+TEXT cr3get(SB), 1, $-4				/* PML4 Base */
 	MOVQ	CR3, AX
 	RET
 
@@ -157,7 +157,7 @@ TEXT cr3put(SB), 1, $-4
 	MOVQ	AX, CR3
 	RET
 
-TEXT cr4get(SB), 1, $-4				/* CR4 - processor extensions */
+TEXT cr4get(SB), 1, $-4				/* Extensions */
 	MOVQ	CR4, AX
 	RET
 
@@ -166,14 +166,14 @@ TEXT cr4put(SB), 1, $-4
 	MOVQ	AX, CR4
 	RET
 
-TEXT rdtsc(SB), 1, $-4				/* time stamp counter */
+TEXT rdtsc(SB), 1, $-4				/* Time Stamp Counter */
 	RDTSC
 	XCHGL	DX, AX				/* swap lo/hi, zero-extend */
 	SHLQ	$32, AX				/* hi<<32 */
 	ORQ	DX, AX				/* (hi<<32)|lo */
 	RET
 
-TEXT rdmsr(SB), 1, $-4				/* model-specific register */
+TEXT rdmsr(SB), 1, $-4				/* Model-Specific Register */
 	MOVL	RARG, CX
 	RDMSR
 	XCHGL	DX, AX				/* swap lo/hi, zero-extend */
@@ -190,7 +190,7 @@ TEXT wrmsr(SB), 1, $-4
 
 /*
  */
-TEXT invlpg(SB), 1, $-4				/* INVLPG va+0(FP) */
+TEXT invlpg(SB), 1, $-4
 	MOVQ	RARG, va+0(FP)
 	INVLPG	va+0(FP)
 	RET
@@ -199,6 +199,9 @@ TEXT wbinvd(SB), 1, $-4
 	WBINVD
 	RET
 
+/*
+ * Serialisation.
+ */
 TEXT lfence(SB), 1, $-4
 	LFENCE
 	RET
@@ -216,35 +219,57 @@ TEXT sfence(SB), 1, $-4
  * Is that assumed anywhere?
  */
 TEXT splhi(SB), 1, $-4
-_splhi:
 	PUSHFQ
 	POPQ	AX
 	TESTQ	$If, AX				/* If - Interrupt Flag */
+	JNZ	_splgohi
+	RET
 
-	JZ	alreadyhi
+_splgohi:
 	MOVQ	(SP), BX
 	MOVQ	BX, 8(RMACH) 			/* save PC in m->splpc */
-
-alreadyhi:
 	CLI
 	RET
 
 TEXT spllo(SB), 1, $-4
-_spllo:
 	PUSHFQ
 	POPQ	AX
 	TESTQ	$If, AX				/* If - Interrupt Flag */
-	JNZ	alreadylo
-	MOVQ	$0, 8(RMACH)			/* clear m->splpc */
+	JZ	_splgolo
+	RET
 
-alreadylo:
+_splgolo:
+	MOVQ	$0, 8(RMACH)			/* clear m->splpc */
 	STI
 	RET
 
 TEXT splx(SB), 1, $-4
 	TESTQ	$If, RARG			/* If - Interrupt Flag */
-	JNZ	_spllo
-	JMP	_splhi
+	JNZ	_splxlo
+
+	PUSHFQ
+	POPQ	AX
+	TESTQ	$If, AX				/* If - Interrupt Flag */
+	JNZ	_splxgohi
+	RET
+
+_splxgohi:
+	MOVQ	(SP), BX
+	MOVQ	BX, 8(RMACH) 			/* save PC in m->splpc */
+	CLI
+	RET
+
+_splxlo:
+	PUSHFQ
+	POPQ	AX
+	TESTQ	$If, AX				/* If - Interrupt Flag */
+	JZ	_splxgolo
+	RET
+
+_splxgolo:
+	MOVQ	$0, 8(RMACH)			/* clear m->splpc */
+	STI
+	RET
 
 TEXT spldone(SB), 1, $-4
 	RET
@@ -256,42 +281,40 @@ TEXT islo(SB), 1, $-4
 	RET
 
 /*
- * Test-And-Set
+ * Synchronisation
  */
-TEXT tas32(SB), 1, $-4
-	MOVL	$0xdeaddead, AX
-	XCHGL	AX, (RARG)			/* lock->key */
-	RET
-
 TEXT ainc(SB), 1, $-4				/* int ainc(int*); */
-	MOVL	(RARG), AX
-_ainc:
-	MOVL	AX, BX
-	INCL	BX
-	LOCK; CMPXCHGL BX, (RARG)
-	JNZ	_ainc
-
-	MOVL	BX, AX
-	CMPL	AX, $0				/* overflow if -ve or 0 */
-	JGT	_return
-_trap:
+	MOVL	$1, AX
+	LOCK; XADDL AX, (RARG)
+	ADDL	$1, AX				/* overflow if -ve or 0 */
+	JGT	_aincreturn
+_ainctrap:
 	XORQ	BX, BX
 	MOVQ	(BX), BX			/* over under sideways down */
-_return:
+_aincreturn:
 	RET
 
 TEXT adec(SB), 1, $-4				/* int adec(int*); */
-	MOVL	(RARG), AX
-_adec:
+	MOVL	$-1, AX
+	LOCK; XADDL AX, (RARG)
+	SUBL	$1, AX				/* underflow if -ve */
+	JGE	_adecreturn
+_adectrap:
+	XORQ	BX, BX
+	MOVQ	(BX), BX			/* over under sideways down */
+_adecreturn:
+	RET
+
+TEXT aadd(SB), 1, $-4				/* int aadd(int*, int); */
+	MOVL	addend+8(FP), AX	
 	MOVL	AX, BX
-	DECL	BX
-	LOCK; CMPXCHGL BX, (RARG)
-	JNZ	_adec
+	LOCK; XADDL BX, (RARG)
+	ADDL	BX, AX
+	RET
 
-	MOVL	BX, AX
-	CMPL	AX, $0				/* underflow if -ve */
-	JLT	_trap
-
+TEXT tas32(SB), 1, $-4
+	MOVL	$0xdeaddead, AX
+	XCHGL	AX, (RARG)			/*  */
 	RET
 
 TEXT cas32(SB), 1, $-4
@@ -318,16 +341,19 @@ _cas64r0:
 	DECL	AX
 	RET
 
+/*
+ * Label consists of a stack pointer and a programme counter.
+ */
 TEXT gotolabel(SB), 1, $-4
-	MOVQ	0(RARG), SP			/* restore sp */
-	MOVQ	8(RARG), AX			/* put return pc on the stack */
+	MOVQ	0(RARG), SP			/* restore SP */
+	MOVQ	8(RARG), AX			/* put return PC on the stack */
 	MOVQ	AX, 0(SP)
 	MOVL	$1, AX				/* return 1 */
 	RET
 
 TEXT setlabel(SB), 1, $-4
-	MOVQ	SP, 0(RARG)			/* store sp */
-	MOVQ	0(SP), BX			/* store return pc */
+	MOVQ	SP, 0(RARG)			/* store SP */
+	MOVQ	0(SP), BX			/* store return PC */
 	MOVQ	BX, 8(RARG)
 	MOVL	$0, AX				/* return 0 */
 	RET

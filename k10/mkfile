@@ -24,7 +24,7 @@ l32p.$O:	${objtype}l.h
 l64idt.$O:	${objtype}l.h
 l64syscall.$O:	${objtype}l.h
 l64v.$O:	${objtype}l.h
-lsipi.$O:	${objtype}l.h
+l64sipi.$O:	${objtype}l.h
 
 apic.$O:	apic.h io.h
 devarch.$O:	../port/error.h /$objtype/include/ureg.h
@@ -65,10 +65,10 @@ random.$O:	../port/error.h
 ${objtype}l.h:DQ:	$objtype.h
 	rc ../mk/mkenum $objtype.h > $target
 
-sipi.h:		lsipi.$O
-	$LD -o lsipi.out -T0xfffffffff0003000 -R4 -l -s $prereq
+sipi.h:		l64sipi.$O mkfile
+	$LD -o l64sipi.out -T0xfffffffff0003000 -R4 -l -s l64sipi.$O
 	{echo 'uchar sipihandler[]={'
-	 xd -1x lsipi.out |
+	 xd -1x l64sipi.out |
 	 sed -e 's/^[0-9a-f]+ //'				\
 	     -e '1,2d' -e '3s/^ .. .. .. .. .. .. .. ..//'	\
 	     -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'

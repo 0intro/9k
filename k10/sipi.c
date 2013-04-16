@@ -9,13 +9,29 @@
 
 #define SIPIHANDLER	(KZERO+0x3000)
 
+/*
+ * Parameters are passed to the bootstrap code via a vector
+ * in low memory indexed by the APIC number of the processor.
+ * The layout, size, and location have to be kept in sync
+ * with the handler code in l64sipi.s.
+ */
+typedef struct Sipi Sipi;
+struct Sipi {
+	u32int	pml4;
+	u32int	_4_;
+	uintptr	stack;
+	Mach*	mach;
+	uintptr	pc;
+};
+
 void
 sipi(void)
 {
 	Apic *apic;
 	Mach *mach;
+	Sipi *sipi;
 	int apicno, i;
-	u32int *sipiptr;
+	u8int *sipiptr;
 	uintmem sipipa;
 	u8int *alloc, *p;
 	extern void squidboy(int);
@@ -29,7 +45,7 @@ sipi(void)
 		return;
 	sipiptr = UINT2PTR(SIPIHANDLER);
 	memmove(sipiptr, sipihandler, sizeof(sipihandler));
-	DBG("sipiptr %#p sipipa %#llux\n", sipiptr, sipipa);
+	memset(sipiptr+4*KiB, 0, sizeof(Sipi)*Napic);
 
 	/*
 	 * Notes:
@@ -43,10 +59,11 @@ sipi(void)
 		apic = &xapic[apicno];
 		if(!apic->useable || apic->addr || apic->machno == 0)
 			continue;
+		sipi = &((Sipi*)(sipiptr+4*KiB))[apicno];
 
 		/*
 		 * NOTE: for now, share the page tables with the
-		 * bootstrap processor, until the lsipi code is worked out,
+		 * bootstrap processor, until this code is worked out,
 		 * so only the Mach and stack portions are used below.
 		 */
 		alloc = mallocalign(MACHSTKSZ+4*PTSZ+4*KiB+MACHSZ, 4096, 0, 0);
@@ -55,8 +72,8 @@ sipi(void)
 		memset(alloc, 0, MACHSTKSZ+4*PTSZ+4*KiB+MACHSZ);
 		p = alloc+MACHSTKSZ;
 
-		sipiptr[-1] = mmuphysaddr(PTR2UINT(p));
-		DBG("p %#p sipiptr[-1] %#ux\n", p, sipiptr[-1]);
+		sipi->pml4 = cr3get();
+		sipi->stack = PTR2UINT(p);
 
 		p += 4*PTSZ+4*KiB;
 
@@ -67,12 +84,14 @@ sipi(void)
 		 * back into the INIT state?
 		 */
 		mach = (Mach*)p;
+		sipi->mach = mach;
 		mach->machno = apic->machno;		/* NOT one-to-one... */
 		mach->splpc = PTR2UINT(squidboy);
+		sipi->pc = mach->splpc;
 		mach->apicno = apicno;
 		mach->stack = PTR2UINT(alloc);
 		mach->vsvm = alloc+MACHSTKSZ+4*PTSZ;
-//OH OH		mach->pml4 = (PTE*)(alloc+MACHSTKSZ);
+		mach->pml4 = m->pml4;
 
 		p = KADDR(0x467);
 		*p++ = sipipa;
@@ -90,8 +109,9 @@ sipi(void)
 		}
 		nvramwrite(0x0f, 0x00);
 
-		DBG("mach %#p (%#p) apicid %d machno %2d %dMHz\n",
+		DBG("apicno%d: machno %d mach %#p (%#p) %dMHz\n",
+			apicno, mach->machno,
 			mach, sys->machptr[mach->machno],
-			apicno, mach->machno, mach->cpumhz);
+			mach->cpumhz);
 	}
 }
