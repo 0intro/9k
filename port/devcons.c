@@ -231,7 +231,7 @@ prflush(void)
 
 	now = m->ticks;
 	while(consactive())
-		if(m->ticks - now >= HZ)
+		if(m->ticks - now >= 10*HZ)
 			break;
 }
 
@@ -345,7 +345,8 @@ print(char *fmt, ...)
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
-	putstrn(buf, n);
+	if(panicking <= 0 || up == nil || up->pid == panicking)
+		putstrn(buf, n);
 
 	return n;
 }
@@ -385,6 +386,8 @@ iprint(char *fmt, ...)
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
+	if(panicking > 0 && up != nil && up->pid != panicking)
+		return n;
 	locked = iprintcanlock(&iprintlock);
 	for(i = 0; i < nconsdevs; i++){
 		if((consdevs[i].flags&Ciprint) != 0){
@@ -414,21 +417,25 @@ panic(char *fmt, ...)
 
 	if(panicking)
 		for(;;);
-	panicking = 1;
+	panicking = -1;
+	if(up)
+		panicking = up->pid;
 
 	s = splhi();
 	strcpy(buf, "panic: ");
 	va_start(arg, fmt);
 	n = vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
-	iprint("%s\n", buf);
+//	iprint("%s\n", buf);
 	if(consdebug)
 		(*consdebug)();
 	splx(s);
 	prflush();
 	buf[n] = '\n';
 	putstrn(buf, n+1);
+	prflush();
 	dumpstack();
+	prflush();
 
 	exit(1);
 }
