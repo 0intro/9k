@@ -38,7 +38,7 @@ struct Mntcache
 typedef struct Cache Cache;
 struct Cache
 {
-	Lock;
+	QLock;
 	int		pgno;
 	Mntcache	*head;
 	Mntcache	*tail;
@@ -190,14 +190,14 @@ copen(Chan *c)
 		return;
 
 	h = c->qid.path%NHASH;
-	lock(&cache);
+	qlock(&cache);
 	for(mc = cache.hash[h]; mc != nil; mc = mc->hash) {
 		if(mc->qid.path == c->qid.path)
 		if(mc->qid.type == c->qid.type)
 		if(mc->devno == c->devno && mc->dev == c->dev) {
 			c->mc = mc;
 			ctail(mc);
-			unlock(&cache);
+			qunlock(&cache);
 
 			/* File was updated, invalidate cache */
 			if(mc->qid.vers != c->qid.vers) {
@@ -234,7 +234,7 @@ copen(Chan *c)
 	c->mc = mc;
 	e = mc->list;
 	mc->list = 0;
-	unlock(&cache);
+	qunlock(&cache);
 
 	while(e) {
 		next = e->next;
@@ -369,7 +369,7 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 		e->start = offset;
 		e->len = l;
 
-		lock(&cache);
+		qlock(&cache);
 		e->bid = cache.pgno;
 		cache.pgno += PGSZ;
 		/* wrap the counter; low bits are unused by pghash but checked by lookpage */
@@ -380,7 +380,7 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 			}else
 				cache.pgno++;
 		}
-		unlock(&cache);
+		qunlock(&cache);
 
 		p->daddr = e->bid;
 		k = kmap(p);
