@@ -1051,11 +1051,6 @@ createdir(Chan *c, Mhead *mh)
 }
 
 static void
-saveregisters(void)
-{
-}
-
-static void
 growparse(Elemlist *e)
 {
 	char **new;
@@ -1399,9 +1394,6 @@ if(c->umh != nil){
 				c->umh = mh;
 			else
 				putmhead(mh);
-
-			/* save registers else error() in open has wrong value of c saved */
-			saveregisters();
 
 			if(omode == OEXEC)
 				c->flag &= ~CCACHE;

@@ -238,8 +238,8 @@ sysexec(Ar0* ar0, va_list list)
 	Chan *chan;
 	Image *img;
 	Segment *s;
-	int argc, i, n;
-	char *a, **argv, *elem, *file, *p;
+	int argc, i, n, nargs;
+	char *a, *args, **argv, elem[sizeof(up->genbuf)], *file, *p;
 	char line[sizeof(Exec)], *progarg[sizeof(Exec)/2+1];
 	long hdrsz, magic, textsz, datasz, bsssz;
 	uintptr textlim, textmin, datalim, bsslim, entry, stack;
@@ -249,26 +249,23 @@ sysexec(Ar0* ar0, va_list list)
 	 */
 
 	/*
-	 * Open the file, remembering the final element and the full name.
+	 * Remember the full name of the file,
+	 * open it, and remember the final element of the
+	 * name left in up->genbuf by namec.
 	 */
-	file = nil;
-	elem = nil;
-	chan = nil;
-	if(waserror()){
-		if(file)
-			free(file);
-		if(elem)
-			free(elem);
-		if(chan)
-			cclose(chan);
-		nexterror();
-	}
-
 	p = va_arg(list, char*);
 	p = validaddr(p, 1, 0);
 	file = validnamedup(p, 1);
+	if(waserror()){
+		free(file);
+		nexterror();
+	}
 	chan = namec(file, Aopen, OEXEC, 0);
-	kstrdup(&elem, up->genbuf);
+	if(waserror()){
+		cclose(chan);
+		nexterror();
+	}
+	strncpy(elem, up->genbuf, sizeof(elem));
 
 	/*
 	 * Read the header.
@@ -300,10 +297,14 @@ sysexec(Ar0* ar0, va_list list)
 		 */
 		p = progarg[0];
 		progarg[0] = elem;
+		poperror();			/* chan */
 		cclose(chan);
-		chan = nil;	/* in case namec errors out */
-		USED(chan);
+
 		chan = namec(p, Aopen, OEXEC, 0);
+		if(waserror()){
+			cclose(chan);
+			nexterror();
+		}
 		hdrsz = chan->dev->read(chan, &hdr, sizeof(Hdr), 0);
 		if(hdrsz < 2)
 			error(Ebadexec);
@@ -386,12 +387,28 @@ sysexec(Ar0* ar0, va_list list)
 	tos->clock = 0;
 
 	/*
+	 * As the pass is made over the arguments and they are pushed onto
+	 * the temporary stack, make a good faith copy in args for up->args. 
+	 */
+	args = smalloc(128);
+	if(waserror()){
+		free(args);
+		nexterror();
+	}
+	nargs = 0;
+
+	/*
 	 * Next push any arguments found from a #! header.
 	 */
 	for(i = 0; i < argc; i++){
 		n = strlen(progarg[i])+1;
 		stack -= n;
 		memmove(UINT2PTR(stack), progarg[i], n);
+
+		if((n = MIN(n, 128-nargs)) <= 0)
+			continue;
+		memmove(&args[nargs], progarg[i], n);
+		nargs += n;
 	}
 
 	/*
@@ -428,6 +445,11 @@ sysexec(Ar0* ar0, va_list list)
 		memmove(p, a, n);
 		p[n-1] = 0;
 		argc++;
+
+		if((n = MIN(n, 128-nargs)) <= 0)
+			continue;
+		memmove(&args[nargs], p, n);
+		nargs += n;
 	}
 	if(argc < 1)
 		error(Ebadexec);
@@ -445,7 +467,7 @@ sysexec(Ar0* ar0, va_list list)
 	 * the temporary segment, the values must be adjusted to reflect
 	 * the segment address after it replaces the current SSEG.
 	 */
-	a = p = UINT2PTR(stack);
+	p = UINT2PTR(stack);
 	stack = sysexecstack(stack, argc);
 	if(stack-(argc+1)*sizeof(char**)-PGSZ < TSTKTOP-USTKSIZE)
 		error(Ebadexec);
@@ -458,39 +480,26 @@ sysexec(Ar0* ar0, va_list list)
 	}
 
 	/*
-	 * Make a good faith copy of the args in up->args using the strings
-	 * in the temporary stack segment. The length must be > 0 as it
+	 * Fix up the up->args copy in args. The length must be > 0 as it
 	 * includes the \0 on the last argument and argc was checked earlier
-	 * to be > 0. After the memmove, compensate for any UTF character
-	 * boundary before placing the terminating \0.
+	 * to be > 0. Compensate for any UTF character boundary before
+	 * placing the terminating \0.
 	 */
-	n = p - a;
-	if(n <= 0)
+	if(nargs <= 0)
 		error(Egreg);
-	if(n > 128)
-		n = 128;
 
-	p = smalloc(n);
-	if(waserror()){
-		free(p);
-		nexterror();
-	}
-
-	memmove(p, a, n);
-	while(n > 0 && (p[n-1] & 0xc0) == 0x80)
-		n--;
-	p[n-1] = '\0';
+	while(nargs > 0 && (args[nargs-1] & 0xc0) == 0x80)
+		nargs--;
+	args[nargs-1] = '\0';
 
 	/*
 	 * All the argument processing is now done, ready to commit.
 	 */
-	free(up->text);
-	up->text = elem;
-	elem = nil;
+	kstrdup(&up->text, elem);
 	free(up->args);
-	up->args = p;
-	up->nargs = n;
-	poperror();				/* p (up->args) */
+	up->args = args;
+	up->nargs = nargs;
+	poperror();				/* args */
 
 	/*
 	 * Close on exec
@@ -558,8 +567,9 @@ sysexec(Ar0* ar0, va_list list)
 	if(chan->dev->dc == L'/')
 		up->basepri = PriRoot;
 	up->priority = up->basepri;
-	poperror();				/* chan, elem, file */
+	poperror();				/* chan */
 	cclose(chan);
+	poperror();				/* file */
 	free(file);
 
 	/*
