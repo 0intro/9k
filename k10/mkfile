@@ -20,6 +20,10 @@ $p$CONF:	$CONF.c $OBJ $LIB
 #	$LD -o $target.elf -H5 -E0x00110000 -P0x00110000 -8 -T0xfffffffff0110000 -l $OBJ $CONF.$O $LIB
 	size $target
 
+install:QV:	$p$CONF
+	cp $p$CONF /$objtype
+	ls -l /$objtype/$p$CONF
+
 l32p.$O:	${objtype}l.h
 l64idt.$O:	${objtype}l.h
 l64syscall.$O:	${objtype}l.h
