@@ -50,7 +50,7 @@ link +dev
 #	ht
 
 misc +dev
-#	cache
+	nocache
 	mp		apic ioapic pci sipi
 
 #

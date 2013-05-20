@@ -44,7 +44,7 @@ link +dev
 #	ht
 
 misc +dev
-#	cache
+	cache
 	mp		apic ioapic pci sipi
 
 #

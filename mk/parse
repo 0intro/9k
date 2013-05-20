@@ -395,25 +395,6 @@ function mkdevc(		a, d, i, m, n, s, t, u, name, cname){
 		split(line["misc", i], a);
 		m[a[1]] = line["misc", i];
 	}
-	if("cache" in m){
-		s = s "extern void cinit(void);\n";
-		s = s "extern void copen(Chan*);\n";
-		s = s "extern int cread(Chan*, uchar*, int, vlong);\n";
-		s = s "extern void cupdate(Chan*, uchar*, int, vlong);\n";
-		s = s "extern void cwrite(Chan*, uchar*, int, vlong);\n\n";
-		s = s "void (*mfcinit)(void) = cinit;\n";
-		s = s "void (*mfcopen)(Chan*) = copen;\n";
-		s = s "int (*mfcread)(Chan*, uchar*, int, vlong) = cread;\n";
-		s = s "void (*mfcupdate)(Chan*, uchar*, int, vlong) = cupdate;\n";
-		s = s "void (*mfcwrite)(Chan*, uchar*, int, vlong) = cwrite;\n\n";
-	}
-	else{
-		s = s "void (*mfcinit)(void) = nil;\n";
-		s = s "void (*mfcopen)(Chan*) = nil;\n";
-		s = s "int (*mfcread)(Chan*, uchar*, int, vlong) = nil;\n";
-		s = s "void (*mfcupdate)(Chan*, uchar*, int, vlong) = nil;\n";
-		s = s "void (*mfcwrite)(Chan*, uchar*, int, vlong) = nil;\n\n";
-	}
 	if(!("rdb" in m)){
 		s = s "void\n";
 		s = s "rdb(void)\n";

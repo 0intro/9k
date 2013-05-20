@@ -88,8 +88,7 @@ mntreset(void)
 	fmtinstall('D', dirfmt);
 /* We can't install %M since eipfmt does and is used in the kernel [sape] */
 
-	if(mfcinit != nil)
-		mfcinit();
+	cinit();
 }
 
 /*
@@ -360,7 +359,7 @@ mntattach(char *muxattach)
 
 	poperror();	/* c */
 
-	if((bogus.flags & MCACHE) && mfcinit != nil)
+	if(bogus.flags & MCACHE)
 		c->flag |= CCACHE;
 	return c;
 }
@@ -529,7 +528,7 @@ mntopencreate(int type, Chan *c, char *name, int omode, int perm)
 	mntfree(r);
 
 	if(c->flag & CCACHE)
-		mfcopen(c);
+		copen(c);
 
 	return c;
 }
@@ -654,7 +653,7 @@ mntread(Chan *c, void *buf, long n, vlong off)
 
 	p = buf;
 	if(cache) {
-		nc = mfcread(c, buf, n, off);
+		nc = cread(c, buf, n, off);
 		if(nc > 0) {
 			n -= nc;
 			if(n == 0)
@@ -663,7 +662,7 @@ mntread(Chan *c, void *buf, long n, vlong off)
 			off += nc;
 		}
 		n = mntrdwr(Tread, c, p, n, off);
-		mfcupdate(c, p, n, off);
+		cupdate(c, p, n, off);
 		return n + nc;
 	}
 
@@ -726,7 +725,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		if(type == Tread)
 			r->b = bl2mem((uchar*)uba, r->b, nr);
 		else if(cache)
-			mfcwrite(c, (uchar*)uba, nr, off);
+			cwrite(c, (uchar*)uba, nr, off);
 
 		poperror();
 		mntfree(r);
