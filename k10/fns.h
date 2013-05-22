@@ -111,6 +111,7 @@ void	pcisetbme(Pcidev*);
 void	pcisetioe(Pcidev*);
 void	pcisetmwi(Pcidev*);
 int	pcisetpms(Pcidev*, int);
+void	(*pmcupdate)(void);
 void	printcpufreq(void);
 int	screenprint(char*, ...);			/* debugging */
 void	sfence(void);

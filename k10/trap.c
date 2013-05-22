@@ -248,12 +248,18 @@ intrtime(Mach*, int vno)
 	intrtimes[vno][diff]++;
 }
 
+void (*pmcupdate)(void);
+
 /* go to user space */
 void
 kexit(Ureg*)
 {
 	uvlong t;
 	Tos *tos;
+
+	/* performance counters */
+	if(pmcupdate != nil)
+		pmcupdate();
 
 	/* precise time accounting, kernel exit */
 	tos = (Tos*)(USTKTOP-sizeof(Tos));
@@ -283,6 +289,9 @@ trap(Ureg* ureg)
 		up->dbgreg = ureg;
 		cycles(&up->kentry);
 	}
+	/* performance counters */
+	if(pmcupdate != nil)
+		pmcupdate();
 
 	clockintr = 0;
 

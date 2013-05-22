@@ -49,6 +49,7 @@ trap.$O:	../port/error.h io.h
 trap.$O:	/sys/include/tos.h /$objtype/include/ureg.h
 
 devether.$O:	../port/error.h ../port/netif.h etherif.h
+devpmc.$O:	../port/error.h ../386/pmc.h
 devrtc.$O:	../port/error.h
 ether8169.$O:	../port/error.h ../port/ethermii.h ../port/netif.h
 ether8169.$O:	etherif.h
@@ -62,6 +63,7 @@ etherm10g.$O:	../386/etherm10g2k.i ../386/etherm10g4k.i
 i8259.$O:	io.h
 kbd.$O:		../port/error.h io.h
 pci.$O:		io.h
+pmc.$O:		../port/error.h amd64.h ../386/pmc.h
 sdiahci.$O:	../386/ahci.h
 
 random.$O:	../port/error.h
