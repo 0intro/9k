@@ -342,6 +342,57 @@ _cas64r0:
 	RET
 
 /*
+ * void monitor(void* address, u32int extensions, u32int hints);
+ * void mwait(u32int extensions, u32int hints);
+ *
+ * Note: extensions and hints are only 32-bits.
+ * There are no extensions or hints defined yet for MONITOR,
+ * but MWAIT can have both.
+ * These functions and prototypes may change.
+ */
+TEXT monitor(SB), 1, $-4
+	MOVQ	RARG, AX			/* address */
+	MOVL	extensions+8(FP), CX		/* (c|sh)ould be 0 currently */
+	MOVL	hints+16(FP), DX		/* (c|sh)ould be 0 currently */
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc8	/* MONITOR */
+	RET
+
+TEXT mwait(SB), 1, $-4
+	MOVL	RARG, CX			/* extensions */
+	MOVL	hints+8(FP), AX
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc9	/* MWAIT */
+	RET
+
+/*
+ * int k10waitfor(int* address, int val);
+ *
+ * Combined, thought to be usual, case of monitor+mwait
+ * with no extensions or hints, and return on interrupt even
+ * if val didn't change.
+ * This function and prototype may change.
+ */
+TEXT k10waitfor(SB), 1, $-4
+	MOVL	val+8(FP), R8
+
+	CMPL	(RARG), R8			/* already changed? */
+	JNE	_wwdone
+
+	MOVQ	RARG, AX			/* linear address to monitor */
+	XORL	CX, CX				/* no optional extensions yet */
+	XORL	DX, DX				/* no optional hints yet */
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc8	/* MONITOR */
+
+	CMPL	(RARG), R8			/* changed yet? */
+	JNE	_wwdone
+
+	XORL	AX, AX				/* no optional hints yet */
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc9	/* MWAIT */
+
+_wwdone:
+	MOVL	(RARG), AX
+	RET
+
+/*
  * Label consists of a stack pointer and a programme counter.
  */
 TEXT gotolabel(SB), 1, $-4

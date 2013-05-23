@@ -4,7 +4,6 @@ void	aamloop(int);
 int	acpiinit(void);
 Dirtab*	addarchfile(char*, int, long(*)(Chan*,void*,long,vlong), long(*)(Chan*,void*,long,vlong));
 void	archfmtinstall(void);
-void	archidle(void);
 void	archinit(void);
 int	archmmu(void);
 void	archreset(void);
@@ -131,6 +130,7 @@ int	userureg(Ureg*);
 void*	vmap(uintmem, usize);
 void	vsvminit(int);
 void	vunmap(void*, usize);
+int	(*waitfor)(int*, int);
 
 extern Mreg cr0get(void);
 extern void cr0put(Mreg);

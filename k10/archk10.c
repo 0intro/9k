@@ -5,6 +5,24 @@
 #include "fns.h"
 
 static int
+portwaitfor(int *vp, int val)
+{
+	int i;
+
+	/*
+	 * How many times round this loop?
+	 */
+	for(i = 0; *vp == val && i < 10000; i++)
+		;
+
+	return *vp;
+}
+
+int (*waitfor)(int*, int) = portwaitfor;
+
+extern int k10waitfor(int*, int);
+
+static int
 cpuidinit(void)
 {
 	u32int eax, info[4];
@@ -27,6 +45,18 @@ cpuidinit(void)
 	 */
 	if((eax = cpuid(0x80000000, 0, info)) >= 0x80000000)
 		m->ncpuinfoe = (eax & ~0x80000000) + 1;
+
+	/*
+	 * Is MONITOR/MWAIT supported?
+	 */
+	if(m->cpuinfo[1][2] & 8){
+		/*
+		 * Will be interested in parameters,
+		 * extensions, and hints later; they can be retrieved
+		 * with standard CPUID function 5.
+		 */
+		waitfor = k10waitfor;
+	}
 
 	return 1;
 }
@@ -322,12 +352,6 @@ archfmtinstall(void)
 
 	fmtinstall('L', fmtL);
 	fmtinstall('R', fmtR);
-}
-
-void
-archidle(void)
-{
-	halt();
 }
 
 void
