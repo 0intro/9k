@@ -11,7 +11,8 @@ fault(uintptr addr, int read)
 	Segment *s;
 	char *sps;
 
-if(up->nlocks) print("fault nlocks %d\n", up->nlocks);
+	if(up->nlocks)
+		iprint("fault nlocks %d addr %#p\n", up->nlocks, addr);
 
 	sps = up->psstate;
 	up->psstate = "Fault";

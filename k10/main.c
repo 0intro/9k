@@ -454,7 +454,7 @@ shutdown(int ispanic)
 void
 reboot(void*, void*, long)
 {
-	panic("reboot\n");
+	panic("reboot");
 }
 
 void
