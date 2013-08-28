@@ -116,6 +116,10 @@ $CONF.c:	../mk/parse $CONF
 ../root/$O.%:	../root/%.c
 	@{cd ../root; mk $O.$stem}
 
+installall:V:
+	for(i in $CONFLIST)
+		mk 'CONF='$i install
+
 all:V:
 	for(i in $CONFLIST)
 		mk 'CONF='$i
