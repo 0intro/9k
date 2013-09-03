@@ -149,8 +149,7 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 	v->name[KNAMELEN-1] = 0;
 
 	ilock(&vctllock);
-	if(vctl[vno])
-		v->next = vctl[vno]->next;
+	v->next = vctl[vno];
 	vctl[vno] = v;
 	iunlock(&vctllock);
 }
@@ -248,8 +247,6 @@ intrtime(Mach*, int vno)
 	intrtimes[vno][diff]++;
 }
 
-void (*pmcupdate)(void);
-
 /* go to user space */
 void
 kexit(Ureg*)
@@ -323,14 +320,14 @@ trap(Ureg* ureg)
 	}
 	else if(vno <= nelem(excname) && user){
 		spllo();
-		sprint(buf, "sys: trap: %s", excname[vno]);
+		snprint(buf, sizeof buf, "sys: trap: %s", excname[vno]);
 		postnote(up, 1, buf, NDebug);
 	}
 	else{
 		if(vno == IdtNMI){
 			nmienable();
 			if(m->machno != 0){
-				iprint("cpu%d: PC %#llux\n",
+				iprint("nmi: cpu%d: PC %#llux\n",
 					m->machno, ureg->ip);
 				for(;;);
 			}
@@ -410,6 +407,10 @@ dumpgpr(Ureg* ureg)
 void
 dumpregs(Ureg* ureg)
 {
+	if(getconf("*nodumpregs")){
+		iprint("dumpregs disabled\n");
+		return;
+	}
 	dumpgpr(ureg);
 
 	/*
@@ -446,7 +447,8 @@ dumpstackwithureg(Ureg* ureg)
 	extern ulong etext;
 	int x;
 
-if(ureg != nil) dumpregs(ureg); return;
+	if(ureg != nil)
+		dumpregs(ureg);
 	if(getconf("*nodumpstack")){
 		iprint("dumpstack disabled\n");
 		return;
@@ -559,7 +561,7 @@ faultamd64(Ureg* ureg, void*)
 			dumpregs(ureg);
 			panic("fault: %#llux\n", addr);
 		}
-		sprint(buf, "sys: trap: fault %s addr=%#llux",
+		snprint(buf, sizeof buf, "sys: trap: fault %s addr=%#llux",
 			read? "read": "write", addr);
 		postnote(up, 1, buf, NDebug);
 		if(insyscall)
