@@ -868,6 +868,9 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	Rendez *r;
 	Proc *d, **l;
 
+	if(dolock && m->ilockdepth != 0)
+		panic("postnote: caller %#p: ilockdepth %d note %s",
+			getcallerpc(&p), m->ilockdepth, n);
 	if(dolock)
 		qlock(&p->debug);
 

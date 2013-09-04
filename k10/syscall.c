@@ -204,6 +204,7 @@ syscall(int scallnr, Ureg* ureg)
 	char *e;
 	uintptr	sp;
 	int i, s;
+	vlong startns, stopns;
 	Ar0 ar0;
 	static Ar0 zar0;
 
@@ -215,19 +216,35 @@ syscall(int scallnr, Ureg* ureg)
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->ip;
+	sp = ureg->sp;
+	up->scallnr = scallnr;
 	up->dbgreg = ureg;
+	startns = 0;
 
 	if(up->procctl == Proc_tracesyscall){
+		/*
+		 * Redundant validaddr.  Do we care?
+		 * Tracing syscalls is not exactly a fast path...
+		 * Beware, validaddr currently does a pexit rather
+		 * than an error if there's a problem; that might
+		 * change in the future.
+		 */
+		if(sp < (USTKTOP-PGSZ) || sp > (USTKTOP-sizeof(up->arg)-BY2V))
+			validaddr((void *)sp, sizeof(up->arg)+BY2V, 0);
+
+		syscallfmt(scallnr, (va_list)(sp+BY2V));
 		up->procctl = Proc_stopme;
 		procctl(up);
+		if(up->syscalltrace)
+			free(up->syscalltrace);
+		up->syscalltrace = nil;
+		startns = todget(nil);
 	}
 
-	up->scallnr = scallnr;
 	if(scallnr == RFORK)
 		fpusysrfork(ureg);
 	spllo();
 
-	sp = ureg->sp;
 	up->nerrlab = 0;
 	ar0 = zar0;
 	if(!waserror()){
@@ -273,10 +290,15 @@ syscall(int scallnr, Ureg* ureg)
 	ureg->ax = ar0.p;
 
 	if(up->procctl == Proc_tracesyscall){
+		stopns = todget(nil);
 		up->procctl = Proc_stopme;
+		sysretfmt(scallnr, (va_list)(sp+BY2V), &ar0, startns, stopns);
 		s = splhi();
 		procctl(up);
 		splx(s);
+		if(up->syscalltrace)
+			free(up->syscalltrace);
+		up->syscalltrace = nil;
 	}
 
 	up->insyscall = 0;
